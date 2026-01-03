@@ -58,9 +58,9 @@
             font-size: 12px; font-family: monospace; overflow: hidden; border-right: 1px solid #333;
         }
 
-        .reg-row { display: grid; grid-template-columns: 30px 40px 1fr; border-bottom: 1px solid #333; padding: 2px 0; }
+        .reg-row { display: grid; grid-template-columns: 40px 60px 1fr; border-bottom: 1px solid #333; padding: 2px 0; align-items: center; }
         .reg-lbl { color: #888; }
-        .reg-val { color: #fff; font-weight: bold; }
+        .reg-val { color: #fff; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .reg-bin { color: #5aa; text-align: right; font-size: 11px; }
 
         button { padding: 10px; background: #444; color: white; border: none; cursor: pointer; }
@@ -144,7 +144,7 @@
                 <div class="cpu-panel" id="p1-cpu">
                     <!-- Status Header -->
                     <div class="reg-row" style="background: #222; border-bottom: 2px solid #444;">
-                        <span class="reg-lbl">STS</span><span class="reg-val" id="p1-status" style="font-size: 10px; color: #aaa;">IDLE</span>
+                        <span class="reg-lbl">STATE</span><span class="reg-val" id="p1-status" style="font-size: 10px; color: #aaa;">IDLE</span>
                     </div>
                     
                     <!-- Compact Read-Only Grid -->
@@ -213,7 +213,7 @@
                 <div class="cpu-panel" id="p2-cpu">
                     <!-- Status Header -->
                     <div class="reg-row" style="background: #222; border-bottom: 2px solid #444;">
-                        <span class="reg-lbl">STS</span><span class="reg-val" id="p2-status" style="font-size: 10px; color: #aaa;">IDLE</span>
+                        <span class="reg-lbl">STATE</span><span class="reg-val" id="p2-status" style="font-size: 10px; color: #aaa;">IDLE</span>
                     </div>
 
                     <!-- Compact Read-Only Grid -->

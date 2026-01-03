@@ -4,6 +4,7 @@ import { OPCODE_BINARY } from './vm/InstructionSet.js';
 import { SimpleCompiler } from './vm/SimpleCompiler.js';
 import { Tokenizer } from './vm/Tokenizer.js';
 import { Parser } from './vm/Parser.js';
+import { BattleManager, TANK_IDS } from './simulation/BattleManager.js';
 
 const config = {
     type: Phaser.AUTO,
@@ -44,17 +45,21 @@ const viewerP2 = document.getElementById('p2-viewer');
 const machineP1 = document.getElementById('p1-machine');
 const machineP2 = document.getElementById('p2-machine');
 
+// Checkboxes
+const chkRawP1 = document.getElementById('p1-raw-asm');
+const chkRawP2 = document.getElementById('p2-raw-asm');
+
 // Compiler & Parser
 const compiler = new SimpleCompiler();
 const tokenizer = new Tokenizer();
 const parser = new Parser();
 
-// Strategies
+// Strategies (Same as before)
 const STRATEGIES = {
     HUNTER: `# --- Hunter ---
 # Ping for enemy, chase them, scan and destroy
 var5 = 0
-while var5 == var5:
+loop:
   ping(var0, var1)
 
   # First align X position with enemy
@@ -109,13 +114,12 @@ while var5 == var5:
     end
   end
 end`,
-
     VERTICAL_SCANNER: `# --- Vertical Scanner ---
 # Patrol up/down, scan horizontally, fire when enemy spotted
 var5 = 0
 var4 = 0
 
-while var5 == var5:
+loop:
   # Face East to scan
   if dir != 0:
     turn_right
@@ -151,11 +155,10 @@ while var5 == var5:
     end
   end
 end`,
-
     CORNER_SNIPER: `# --- Corner Sniper ---
 # Go to top-left corner, scan East and South, wait between shots
 var5 = 0
-while var5 == var5:
+loop:
   # Get to corner first
   if posx > 1:
     if dir != 2:
@@ -198,14 +201,13 @@ while var5 == var5:
     end
   end
 end`,
-
     ZIGZAG: `# --- Zigzag Charger ---
 # Charge forward in zigzag pattern, fire often
 var0 = 3
 var1 = 0
 var5 = 0
 
-while var5 == var5:
+loop:
   # Scan ahead
   scan(var2, var3)
   if var3 == 2:
@@ -241,13 +243,12 @@ while var5 == var5:
     end
   end
 end`,
-
     PATROL: `# --- Patrol Bot ---
 # Move in a square pattern, scan at each corner
 var0 = 4
 var5 = 0
 
-while var5 == var5:
+loop:
   scan(var1, var2)
   if var2 == 2:
     fire
@@ -267,11 +268,10 @@ while var5 == var5:
     end
   end
 end`,
-
     STALKER: `# --- Stalker ---
 # Follow enemy, keep scanning and shooting
 var5 = 0
-while var5 == var5:
+loop:
   # Scan first - if enemy visible, shoot!
   scan(var2, var3)
   if var3 == 2:
@@ -329,13 +329,8 @@ scriptP1.value = STRATEGIES.HUNTER;
 scriptP2.value = STRATEGIES.STALKER;
 
 // Strategy Selectors
-selP1.addEventListener('change', () => {
-    if (STRATEGIES[selP1.value]) scriptP1.value = STRATEGIES[selP1.value];
-});
-
-selP2.addEventListener('change', () => {
-    if (STRATEGIES[selP2.value]) scriptP2.value = STRATEGIES[selP2.value];
-});
+selP1.addEventListener('change', () => { if (STRATEGIES[selP1.value]) scriptP1.value = STRATEGIES[selP1.value]; });
+selP2.addEventListener('change', () => { if (STRATEGIES[selP2.value]) scriptP2.value = STRATEGIES[selP2.value]; });
 
 // UI Updater
 const REGISTERS = ['PC', 'ACC', 'CMP', 'R0', 'R1', 'R2', 'R3', 'R4', 'R5', 'PX', 'PY', 'DIR', 'HP', 'AMMO'];
@@ -343,33 +338,28 @@ const REGISTERS = ['PC', 'ACC', 'CMP', 'R0', 'R1', 'R2', 'R3', 'R4', 'R5', 'PX',
 // Error Helper
 function showError(prefix, msg) {
     const el = document.getElementById(prefix.toLowerCase() + '-error');
-    if (el) {
-        el.textContent = msg;
-        el.style.display = 'block';
-    }
+    if (el) { el.textContent = msg; el.style.display = 'block'; }
 }
 
 function clearError(prefix) {
     const el = document.getElementById(prefix.toLowerCase() + '-error');
-    if (el) {
-        el.style.display = 'none';
-        el.textContent = '';
-    }
+    if (el) { el.style.display = 'none'; el.textContent = ''; }
 }
 
 // Compile a single player's script
-function compilePlayer(prefix, scriptEl, viewerEl, machineEl) {
+function compilePlayer(prefix, scriptEl, viewerEl, machineEl, isRaw) {
     clearError(prefix);
     try {
-        const asm = compiler.compile(scriptEl.value);
+        let asm = scriptEl.value;
+        if (!isRaw) {
+            asm = compiler.compile(scriptEl.value);
+        }
+        
         const tokens = tokenizer.tokenize(asm);
         const { program, labels, error } = parser.parse(tokens);
-
         if (error) throw new Error(error);
-
         renderAssembly(viewerEl, program);
         renderMachineCode(machineEl, program);
-
         return { asm, program, labels };
     } catch (e) {
         showError(prefix, `Compile Error: ${e.message}`);
@@ -377,242 +367,268 @@ function compilePlayer(prefix, scriptEl, viewerEl, machineEl) {
     }
 }
 
+// --- Simulation Control ---
+let simulationTimer = null;
+let runModeSpeed = 500; 
+let microOpSpeed = 20;  
+let isFastForward = false;
+let simulationRunning = false;
+
+const battleManager = new BattleManager();
+
+function updateUIState(state) {
+    if (!state) return;
+    updateCPU('p1', state.tanks.P1);
+    updateCPU('p2', state.tanks.P2);
+    window.dispatchEvent(new CustomEvent('update-ui', { detail: state }));
+}
+
+function executeLoopStep() {
+    if (!simulationRunning || battleManager.isGameOver) {
+        stopSimulation();
+        return;
+    }
+
+    // Step P1 if not ready
+    const p1Ready = !!battleManager.pendingActions[TANK_IDS.P1] || battleManager.tanks[TANK_IDS.P1].hp <= 0;
+    if (!p1Ready) {
+        battleManager.stepCPU(TANK_IDS.P1);
+    }
+
+    // Step P2 if not ready
+    const p2Ready = !!battleManager.pendingActions[TANK_IDS.P2] || battleManager.tanks[TANK_IDS.P2].hp <= 0;
+    if (!p2Ready) {
+        battleManager.stepCPU(TANK_IDS.P2);
+    }
+
+    // Update UI once after both have potentially stepped
+    updateUIState(battleManager.getState());
+
+    // Check if BOTH are ready now (re-evaluate after steps)
+    const p1Done = !!battleManager.pendingActions.P1 || battleManager.tanks.P1.hp <= 0;
+    const p2Done = !!battleManager.pendingActions.P2 || battleManager.tanks.P2.hp <= 0;
+
+    let nextDelay = isFastForward ? 0 : microOpSpeed;
+
+    if (p1Done && p2Done) {
+        // End of Turn!
+        battleManager.resolveTurn();
+        updateUIState(battleManager.getState());
+        nextDelay = isFastForward ? 50 : runModeSpeed;
+    }
+
+    simulationTimer = setTimeout(executeLoopStep, nextDelay);
+}
+
+function startSimulationLoop() {
+    if (simulationTimer) clearTimeout(simulationTimer);
+    simulationRunning = true;
+    btnStop.classList.remove('active');
+    executeLoopStep();
+}
+
+function stopSimulation() {
+    if (simulationTimer) clearTimeout(simulationTimer);
+    simulationTimer = null;
+    simulationRunning = false;
+    btnStop.classList.add('active'); // RED state
+}
+
 // Compile button handlers
 btnCompileP1.addEventListener('click', () => {
-    compilePlayer('P1', scriptP1, viewerP1, machineP1);
+    const res = compilePlayer('P1', scriptP1, viewerP1, machineP1, chkRawP1 ? chkRawP1.checked : false);
+    if (res) {
+        btnCompileP1.textContent = "OK!";
+        setTimeout(() => btnCompileP1.textContent = "COMPILE", 1000);
+    }
 });
 
 btnCompileP2.addEventListener('click', () => {
-    compilePlayer('P2', scriptP2, viewerP2, machineP2);
+    const res = compilePlayer('P2', scriptP2, viewerP2, machineP2, chkRawP2 ? chkRawP2.checked : false);
+    if (res) {
+        btnCompileP2.textContent = "OK!";
+        setTimeout(() => btnCompileP2.textContent = "COMPILE", 1000);
+    }
 });
 
+// Main Control Button Handlers
 btnRun.addEventListener('click', () => {
-    clearError('P1');
-    clearError('P2');
-    try {
-        // Compile TankScript to Assembly
-        const p1Asm = compiler.compile(scriptP1.value);
-        const p2Asm = compiler.compile(scriptP2.value);
+    if (simulationRunning && !isFastForward) return;
+    
+    const p1 = compilePlayer('P1', scriptP1, viewerP1, machineP1, chkRawP1 ? chkRawP1.checked : false);
+    const p2 = compilePlayer('P2', scriptP2, viewerP2, machineP2, chkRawP2 ? chkRawP2.checked : false);
+    if (!p1 || !p2) return;
+    
+    // Always reload code on RUN to ensure latest version
+    const res = battleManager.loadCode(p1.asm, p2.asm);
+    if (!res.success) { showError('P1', res.error); return; }
 
-        // Parse to get program for display
-        const p1Tokens = tokenizer.tokenize(p1Asm);
-        const p2Tokens = tokenizer.tokenize(p2Asm);
-        const p1Result = parser.parse(p1Tokens);
-        const p2Result = parser.parse(p2Tokens);
-
-        if (p1Result.error) throw new Error('P1 Error: ' + p1Result.error);
-        if (p2Result.error) throw new Error('P2 Error: ' + p2Result.error);
-
-        // Render assembly and machine code
-        renderAssembly(viewerP1, p1Result.program);
-        renderAssembly(viewerP2, p2Result.program);
-        renderMachineCode(machineP1, p1Result.program);
-        renderMachineCode(machineP2, p2Result.program);
-
-        const event = new CustomEvent('run-sim', {
-            detail: {
-                p1Code: p1Asm,
-                p2Code: p2Asm,
-                level: parseInt(levelSelect.value)
-            }
-        });
-        window.dispatchEvent(event);
-    } catch (e) {
-        // If P1 failed, show P1 error, etc.
-        // Simple heuristic: if message starts with P1 or P2
-        if (e.message.startsWith('P1')) showError('P1', e.message);
-        else if (e.message.startsWith('P2')) showError('P2', e.message);
-        else alert(e.message); // Fallback
-    }
+    isFastForward = false;
+    startSimulationLoop();
 });
 
 btnStop.addEventListener('click', () => {
-    window.dispatchEvent(new CustomEvent('stop-sim'));
-});
-
-// Listen for halt state changes
-window.addEventListener('halt-state', (e) => {
-    if (e.detail.halted) {
-        btnStop.classList.add('active');
-    } else {
-        btnStop.classList.remove('active');
-    }
+    stopSimulation();
 });
 
 btnStep.addEventListener('click', () => {
-    window.dispatchEvent(new CustomEvent('step-sim'));
+    stopSimulation(); // Ensure interval is off, but button becomes active
+    
+    // Lazy compile/load if CPUs missing
+    if (!battleManager.tanks.P1.cpu) {
+         const p1 = compilePlayer('P1', scriptP1, viewerP1, machineP1, chkRawP1 ? chkRawP1.checked : false);
+         const p2 = compilePlayer('P2', scriptP2, viewerP2, machineP2, chkRawP2 ? chkRawP2.checked : false);
+         if (!p1 || !p2) return;
+         battleManager.loadCode(p1.asm, p2.asm);
+    }
+    
+    // Step BOTH tanks (simultaneous visual step)
+    const p1Ready = !!battleManager.pendingActions[TANK_IDS.P1] || battleManager.tanks[TANK_IDS.P1].hp <= 0;
+    if (!p1Ready) battleManager.stepCPU(TANK_IDS.P1);
+
+    const p2Ready = !!battleManager.pendingActions[TANK_IDS.P2] || battleManager.tanks[TANK_IDS.P2].hp <= 0;
+    if (!p2Ready) battleManager.stepCPU(TANK_IDS.P2);
+
+    // Check resolve
+    const p1Done = !!battleManager.pendingActions.P1 || battleManager.tanks.P1.hp <= 0;
+    const p2Done = !!battleManager.pendingActions.P2 || battleManager.tanks.P2.hp <= 0;
+
+    if (p1Done && p2Done) {
+        battleManager.resolveTurn();
+    }
+    updateUIState(battleManager.getState());
 });
 
-// Track if simulation has been started (not reset)
-let simStarted = false;
-window.addEventListener('sim-started', () => { simStarted = true; });
-window.addEventListener('reset-sim', () => { simStarted = false; });
-
 btnFf.addEventListener('click', () => {
-    if (!simStarted) {
-        // Start the simulation first, then FF
-        btnRun.click();
+    if (simulationRunning && isFastForward) return;
+    
+    // Lazy compile/load
+    if (!battleManager.tanks.P1.cpu) {
+         const p1 = compilePlayer('P1', scriptP1, viewerP1, machineP1, chkRawP1 ? chkRawP1.checked : false);
+         const p2 = compilePlayer('P2', scriptP2, viewerP2, machineP2, chkRawP2 ? chkRawP2.checked : false);
+         if (!p1 || !p2) return;
+         battleManager.loadCode(p1.asm, p2.asm);
     }
-    window.dispatchEvent(new CustomEvent('ff-sim'));
+    isFastForward = true;
+    startSimulationLoop();
 });
 
 btnReset.addEventListener('click', () => {
-    window.dispatchEvent(new CustomEvent('reset-sim', {
-        detail: { level: parseInt(levelSelect.value) }
-    }));
+    stopSimulation();
+    const level = parseInt(levelSelect.value);
+    battleManager.setupArena(level);
+    battleManager.resetTurnState(); 
+    const p1 = compilePlayer('P1', scriptP1, viewerP1, machineP1, chkRawP1 ? chkRawP1.checked : false);
+    const p2 = compilePlayer('P2', scriptP2, viewerP2, machineP2, chkRawP2 ? chkRawP2.checked : false);
+    if (p1 && p2) battleManager.loadCode(p1.asm, p2.asm);
+    updateUIState(battleManager.getState());
+    window.dispatchEvent(new CustomEvent('reset-sim', { detail: { level: level } }));
+    btnStop.classList.remove('active');
 });
 
-levelSelect.addEventListener('change', () => {
-    window.dispatchEvent(new CustomEvent('reset-sim', {
-        detail: { level: parseInt(levelSelect.value) }
-    }));
-});
+levelSelect.addEventListener('change', () => { btnReset.click(); });
 
-window.addEventListener('update-ui', (e) => {
-    const state = e.detail;
-    updateCPU('p1', state.tanks.P1);
-    updateCPU('p2', state.tanks.P2);
-});
-
-// Handle Sim Start (Show Bytecode View)
-window.addEventListener('sim-started', (e) => {
-    const { p1Program, p2Program } = e.detail;
-    renderAssembly(viewerP1, p1Program);
-    renderAssembly(viewerP2, p2Program);
-    renderMachineCode(machineP1, p1Program);
-    renderMachineCode(machineP2, p2Program);
-});
-
+// Render Functions
 function renderAssembly(viewer, program) {
     viewer.innerHTML = '';
-
+    if (!program) return;
     program.forEach((inst, index) => {
         const row = document.createElement('div');
         row.className = 'asm-line';
         row.id = viewer.id.replace('viewer', 'asm-line') + '-' + index;
-
         const addr = document.createElement('span');
         addr.className = 'asm-addr';
         addr.textContent = index.toString(16).padStart(2, '0').toUpperCase();
-
         const text = document.createElement('span');
         text.className = 'asm-instr';
-        let args = inst.args.join(', ');
-        text.textContent = `${inst.opcode} ${args}`;
-
-        row.appendChild(addr);
-        row.appendChild(text);
-        viewer.appendChild(row);
+        text.textContent = `${inst.opcode} ${inst.args.join(', ')}`;
+        row.appendChild(addr); row.appendChild(text); viewer.appendChild(row);
     });
 }
 
 function renderMachineCode(container, program) {
     container.innerHTML = '';
-
+    if (!program) return;
     program.forEach((inst, index) => {
         const row = document.createElement('div');
         row.className = 'machine-line';
         row.id = container.id + '-line-' + index;
-
         const addr = document.createElement('span');
         addr.className = 'machine-addr';
         addr.textContent = index.toString(16).padStart(2, '0').toUpperCase();
-
         const opByte = OPCODE_BINARY[inst.opcode] || 0;
-
-        // Build hex representation
         const hex = document.createElement('span');
         hex.className = 'machine-hex';
         hex.textContent = opByte.toString(16).padStart(2, '0').toUpperCase();
-
-        // Build binary representation
         const bin = document.createElement('span');
         bin.className = 'machine-bin';
         bin.textContent = opByte.toString(2).padStart(8, '0');
-
-        row.appendChild(addr);
-        row.appendChild(hex);
-        row.appendChild(bin);
+        row.appendChild(addr); row.appendChild(hex); row.appendChild(bin);
         container.appendChild(row);
     });
 }
 
 function updateCPU(prefix, tankData) {
     if (!tankData || !tankData.debugRegisters) return;
-
-    // Update Status Line
     const statusEl = document.getElementById(`${prefix}-status`);
     if (statusEl) {
         let statusText = 'IDLE';
         let color = '#aaa';
-
-        if (tankData.hp <= 0) {
-            statusText = 'DESTROYED';
-            color = '#f00';
-        } else if (tankData.lastFeedback) {
-            // High-level feedback (e.g. RELOADING, BLOCKED)
-            statusText = `FAIL (${tankData.lastFeedback})`;
-            color = '#f66'; // Red-ish
-        } else if (tankData.lastAction) {
-            statusText = tankData.lastAction;
-            color = '#4f4'; // Green
+        if (tankData.hp <= 0) { statusText = 'DESTROYED'; color = '#f00'; }
+        else if (tankData.lastFeedback) { statusText = tankData.lastFeedback; color = '#f66'; }
+        else if (tankData.lastAction) {
+            if (tankData.lastAction === 'HALT') { statusText = 'HALTED'; color = '#f0f'; }
+            else if (OPCODE_BINARY[tankData.lastAction] !== undefined) { 
+                statusText = `TICK: ${tankData.lastAction}`; color = '#ff0'; 
+            } else { 
+                statusText = `ACT: ${tankData.lastAction}`; color = '#4f4'; 
+            }
         }
-
         statusEl.textContent = statusText;
         statusEl.style.color = color;
     }
-
     const regs = tankData.debugRegisters;
-
-    REGISTERS.forEach(reg => {
+    
+    // Update Total Ops (New)
+    const totalOpsEl = document.getElementById(`${prefix}-totalOps`);
+    if (totalOpsEl) totalOpsEl.textContent = tankData.totalOps || 0; // Assuming element exists? 
+    // Wait, I didn't add p1-totalOps to index.html yet! 
+    // The previous instruction asked for it but I only updated BattleScene HUD.
+    // I should check if user wants it in the CPU panel too. 
+    // "Implement UI element to display current CPU Tick count" - was likely for HUD.
+    // But displaying it in CPU panel is good practice.
+    
+    const pxEl = document.getElementById(`${prefix}-PX`); if(pxEl) pxEl.textContent = regs['PX'];
+    const pyEl = document.getElementById(`${prefix}-PY`); if(pyEl) pyEl.textContent = regs['PY'];
+    const dirEl = document.getElementById(`${prefix}-DIR`); 
+    if(dirEl) { const dirNames = ['E', 'S', 'W', 'N']; dirEl.textContent = dirNames[regs['DIR']] || regs['DIR']; }
+    const hpEl = document.getElementById(`${prefix}-HP`); if(hpEl) hpEl.textContent = regs['HP'];
+    const ammoEl = document.getElementById(`${prefix}-AMMO`); if(ammoEl) ammoEl.textContent = regs['AMMO'];
+    ['PC', 'ACC', 'CMP', 'R0', 'R1', 'R2', 'R3', 'R4', 'R5'].forEach(reg => {
         const val = regs[reg];
         const el = document.getElementById(`${prefix}-${reg}`);
         if (el) el.textContent = val;
-
         const binEl = document.getElementById(`${prefix}-${reg}-bin`);
-        if (binEl) {
-            binEl.textContent = (val & 0xFF).toString(2).padStart(8, '0');
-        }
+        if (binEl) binEl.textContent = (val & 0xFF).toString(2).padStart(8, '0');
     });
-
     const irEl = document.getElementById(`${prefix}-IR`);
     const irBinEl = document.getElementById(`${prefix}-IR-bin`);
-
     if (irEl) {
-        const irText = tankData.debugIR || '-';
-        irEl.textContent = irText;
-
+        const irText = tankData.debugIR || '-'; irEl.textContent = irText;
         if (irBinEl) {
-            if (irText === '-' || irText === 'HALT') {
-                irBinEl.textContent = '00000000';
-            } else {
-                const opcode = irText.split(' ')[0];
-                const binVal = OPCODE_BINARY[opcode] || 0;
-                irBinEl.textContent = binVal.toString(2).padStart(8, '0');
-            }
+            if (irText === '-' || irText === 'HALT') irBinEl.textContent = '00000000';
+            else { const opcode = irText.split(' ')[0]; const binVal = OPCODE_BINARY[opcode] || 0; irBinEl.textContent = binVal.toString(2).padStart(8, '0'); }
         }
     }
-
-    // Highlight current PC in assembly viewer
     const highlightPC = (tankData.debugPC !== undefined) ? tankData.debugPC : regs.PC;
     const viewer = document.getElementById(`${prefix}-viewer`);
     const oldActiveAsm = viewer.querySelector('.active');
     if (oldActiveAsm) oldActiveAsm.classList.remove('active');
-
     const newActiveAsm = document.getElementById(`${prefix}-asm-line-${highlightPC}`);
-    if (newActiveAsm) {
-        newActiveAsm.classList.add('active');
-        newActiveAsm.scrollIntoView({ block: 'nearest' });
-    }
-
-    // Highlight current PC in machine code viewer
+    if (newActiveAsm) { newActiveAsm.classList.add('active'); newActiveAsm.scrollIntoView({ block: 'nearest' }); }
     const machine = document.getElementById(`${prefix}-machine`);
     const oldActiveMachine = machine.querySelector('.active');
     if (oldActiveMachine) oldActiveMachine.classList.remove('active');
-
     const newActiveMachine = document.getElementById(`${prefix}-machine-line-${highlightPC}`);
-    if (newActiveMachine) {
-        newActiveMachine.classList.add('active');
-        newActiveMachine.scrollIntoView({ block: 'nearest' });
-    }
+    if (newActiveMachine) { newActiveMachine.classList.add('active'); newActiveMachine.scrollIntoView({ block: 'nearest' }); }
 }

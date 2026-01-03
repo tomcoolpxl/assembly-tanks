@@ -69,16 +69,28 @@ function createCPU(tankScript) {
 
 // Helper: Run CPU until action or done
 function runUntilAction(cpu) {
-    return cpu.step();
+    let result = null;
+    let guard = 0;
+    while (guard < 1000) {
+        result = cpu.step();
+        if (!result) return null; // Done
+        if (result.type !== 'CPU_OP' && result.type !== 'WAIT') {
+            return result; // Found action
+        }
+        guard++;
+    }
+    throw new Error("runUntilAction timed out");
 }
 
 // Helper: Run CPU collecting all actions until done
-function runToCompletion(cpu, maxSteps = 100) {
+function runToCompletion(cpu, maxSteps = 1000) {
     const actions = [];
     let steps = 0;
     while (!cpu.isDone && steps < maxSteps) {
-        const action = cpu.step();
-        if (action) actions.push(action);
+        const result = cpu.step();
+        if (result && result.type !== 'CPU_OP' && result.type !== 'WAIT') {
+            actions.push(result);
+        }
         steps++;
     }
     return actions;
@@ -673,20 +685,12 @@ describe('CPU - Repeat Loop Execution', () => {
 });
 
 describe('CPU - Infinite Loop Protection', () => {
-    test('MAX_OPS prevents infinite loop', () => {
-        // Use var0 == var0 which is always true (both start at 0)
-        const cpu = createCPU('while var0 == var0:\nvar1 = var1 + 1\nend');
-        const action = cpu.step();
-        assertEqual(action.type, 'WAIT', 'should yield WAIT');
-        assertEqual(action.reason, 'MAX_OPS', 'should be MAX_OPS reason');
-    });
-
-    test('CPU continues after MAX_OPS on next step', () => {
+    test('CPU yields CPU_OPs in infinite loop', () => {
         // Use var0 == var0 which is always true
         const cpu = createCPU('while var0 == var0:\nvar1 = var1 + 1\nend');
-        cpu.step(); // First step hits MAX_OPS
-        const action = cpu.step(); // Second step continues
-        assertEqual(action.type, 'WAIT', 'should still be in infinite loop');
+        const action = cpu.step();
+        assertEqual(action.type, 'CPU_OP', 'should yield CPU_OP');
+        // It does not yield WAIT anymore, BattleManager handles that
     });
 });
 

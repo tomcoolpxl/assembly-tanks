@@ -24,42 +24,33 @@ export class CPU {
 
         this.yieldAction = null; // Output for the Simulator (e.g., { type: 'MOVE', direction: 'F' })
         this.isDone = false;
-        this.maxOps = 50; // Infinite loop protection per tick
     }
 
     /**
-     * Executes instructions until an ACTION is performed (yield) or MAX_OPS reached.
-     * @returns {Object|null} Action object or null if finished/waiting
+     * Executes exactly one instruction.
+     * @returns {Object|null} Action object (Move/Scan/Fire), CPU_OP (Math/Flow), or null (Done)
      */
     step() {
-        this.yieldAction = null;
-        let ops = 0;
-
-        while (ops < this.maxOps) {
-            if (this.registers.PC >= this.program.length) {
-                this.isDone = true;
-                return null; // End of program
-            }
-
-            const instruction = this.program[this.registers.PC];
-            this.registers.PC++; // Advance PC immediately (Jumps will overwrite this)
-
-            const { opcode, args } = instruction;
-            
-            // Execute Logic
-            const result = this.executeInstruction(opcode, args);
-
-            ops++;
-
-            // If an Action was produced, stop and return it.
-            if (result) {
-                return result;
-            }
+        if (this.registers.PC >= this.program.length) {
+            this.isDone = true;
+            return null; // End of program
         }
+
+        const instruction = this.program[this.registers.PC];
+        this.registers.PC++; // Advance PC immediately (Jumps will overwrite this)
+
+        const { opcode, args } = instruction;
         
-        // If we exit loop without returning, we hit MAX_OPS. 
-        // We yield "WAIT" to the simulator so we don't freeze the browser.
-        return { type: 'WAIT', reason: 'MAX_OPS' };
+        // Execute Logic
+        const result = this.executeInstruction(opcode, args);
+
+        // If an Action was produced, return it.
+        if (result) {
+            return result;
+        }
+
+        // Otherwise, it was a logic/math operation (instant in game time, but 1 step in CPU time)
+        return { type: 'CPU_OP', opcode: opcode };
     }
 
     executeInstruction(opcode, args) {
