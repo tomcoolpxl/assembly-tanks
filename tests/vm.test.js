@@ -1,5 +1,5 @@
 /**
- * Tests for Assembly Tanks VM - High-level TankScript language
+ * Tests for CPU Wars VM - High-level TankScript language
  * Run with: node tests/vm.test.js
  */
 

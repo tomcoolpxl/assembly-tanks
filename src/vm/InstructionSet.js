@@ -1,5 +1,5 @@
 /**
- * Instruction Set Architecture (ISA) for Assembly Tanks
+ * Instruction Set Architecture (ISA) for CPU Wars
  */
 
 export const REGISTERS = {

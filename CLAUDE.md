@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Assembly Tanks is an educational puzzle-strategy game that teaches low-level programming concepts through a real-time autobattler format. Players write "TankScript" code (a high-level language) that compiles to assembly-like instructions executed by a custom Virtual Machine.
+CPU Wars is an educational puzzle-strategy game that teaches low-level programming concepts through a real-time autobattler format. Players write "TankScript" code (a high-level language) that compiles to assembly-like instructions executed by a custom Virtual Machine.
 
 ## Build & Development Commands
 

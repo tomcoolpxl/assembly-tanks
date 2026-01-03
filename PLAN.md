@@ -2,11 +2,11 @@ Following the plan, I have included a **Self-Review** section at the end to crit
 
 ---
 
-# Master Design Document: Tank Assembly Autobattler
+# Master Design Document: CPU Wars
 
 ## 1. Introduction & Concept
 
-**"Assembly Tanks"** is an educational puzzle-strategy game designed to teach students the fundamentals of low-level programming (Assembly) and algorithmic thinking.
+**"CPU Wars"** is an educational puzzle-strategy game designed to teach students the fundamentals of low-level programming (Assembly) and algorithmic thinking.
 
 **The Core Loop:**
 

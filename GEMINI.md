@@ -1,8 +1,8 @@
-# Assembly Tanks - Project Context
+# CPU Wars - Project Context
 
 ## Project Overview
 
-**"Assembly Tanks"** is an educational puzzle-strategy game designed to teach low-level programming concepts. Players write "Fake Assembly" code to control a tank's movement, sensors, and weapons. These scripts are executed by a custom Virtual Machine (VM) in a real-time autobattler format against opponents.
+**"CPU Wars"** is an educational puzzle-strategy game designed to teach low-level programming concepts. Players write "Fake Assembly" code to control a tank's movement, sensors, and weapons. These scripts are executed by a custom Virtual Machine (VM) in a real-time autobattler format against opponents.
 
 ### Key Concepts
 *   **Code Phase:** Players write assembly-like instructions (e.g., `MOV_F`, `SCAN`, `JMP`).
