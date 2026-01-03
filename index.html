@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CPU Wars</title>
     <style>
-        body { margin: 0; padding: 0; background: #222; color: #eee; font-family: monospace; }
-        #app { display: flex; height: 100vh; }
-        #game-container { flex: 0 0 40%; display: flex; justify-content: center; align-items: center; background: #000; }
-        #editor-container { flex: 1; display: flex; flex-direction: column; padding: 10px; border-left: 1px solid #444; overflow-y: auto; }
+        body { margin: 0; padding: 0; background: #222; color: #eee; font-family: monospace; overflow: hidden; }
+        #app { display: flex; height: 100vh; width: 100vw; overflow: hidden; }
+        #game-container { flex: 0 0 40%; background: #000; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+        #editor-container { flex: 1; display: flex; flex-direction: column; padding: 10px; border-left: 1px solid #444; overflow-y: auto; min-width: 400px; }
 
         .header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
         .header-row select { background: #333; color: #fff; border: 1px solid #555; padding: 4px 8px; }
