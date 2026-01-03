@@ -15,10 +15,12 @@ export const REGISTERS = {
     PX: 'PX',   // Tank X position (read-only)
     PY: 'PY',   // Tank Y position (read-only)
     DIR: 'DIR', // Tank facing direction (read-only): 0=E, 1=S, 2=W, 3=N
+    HP: 'HP',   // Health Points (read-only)
+    AMMO: 'AMMO' // Ammo count (0 or 1) (read-only)
 };
 
 // Read-only registers that cannot be modified by tank scripts
-export const READ_ONLY_REGISTERS = ['PX', 'PY', 'DIR'];
+export const READ_ONLY_REGISTERS = ['PX', 'PY', 'DIR', 'HP', 'AMMO'];
 
 export const OPCODES = {
     // ACTIONS (End Turn)

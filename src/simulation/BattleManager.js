@@ -19,8 +19,8 @@ export class BattleManager {
         
         // Initial State (Adjusted for 16x10 arena)
         this.tanks = {
-            [TANK_IDS.P1]: { x: 0, y: 4, facing: 0, hp: 3, cpu: null, lastAction: null }, // P1 Blue
-            [TANK_IDS.P2]: { x: 15, y: 5, facing: 2, hp: 3, cpu: null, lastAction: null } // P2 Red (opposite side)
+            [TANK_IDS.P1]: { x: 0, y: 4, facing: 0, hp: 3, cpu: null, lastAction: null, lastFeedback: null }, // P1 Blue
+            [TANK_IDS.P2]: { x: 15, y: 5, facing: 2, hp: 3, cpu: null, lastAction: null, lastFeedback: null } // P2 Red (opposite side)
         };
         
         this.bullets = []; // Array of { x, y, dir, owner, dist }
@@ -88,6 +88,10 @@ export class BattleManager {
     tick() {
         if (this.isGameOver) return null;
         this.events = []; // Clear previous events
+        
+        // Reset Feedback
+        this.tanks.P1.lastFeedback = null;
+        this.tanks.P2.lastFeedback = null;
 
         const p1Action = this.runCPU(TANK_IDS.P1);
         const p2Action = this.runCPU(TANK_IDS.P2);
@@ -142,9 +146,13 @@ export class BattleManager {
         // If tank is dead, do nothing
         if (tank.hp <= 0) return null;
 
+        // Calculate Ammo (1 if no active bullet, 0 if active)
+        const hasActiveBullet = this.bullets.some(b => b.owner === tankId);
+        const ammo = hasActiveBullet ? 0 : 1;
+
         // Update position/direction registers BEFORE executing code
         // This ensures tank scripts can read current position instantly
-        tank.cpu.updateTankState(tank.x, tank.y, tank.facing);
+        tank.cpu.updateTankState(tank.x, tank.y, tank.facing, tank.hp, ammo);
 
         // Capture IR (Instruction about to be executed)
         const pc = tank.cpu.registers.PC;
@@ -160,6 +168,11 @@ export class BattleManager {
         const action = tank.cpu.step();
         
         // Store last action for debug
+        // If WAIT (MAX_OPS), set feedback immediately
+        if (action && action.type === 'WAIT' && action.reason === 'MAX_OPS') {
+            tank.lastFeedback = 'LOOP STALL';
+        }
+        
         tank.lastAction = action ? action.type : 'IDLE';
         
         // Snapshot registers
@@ -227,7 +240,10 @@ export class BattleManager {
         else if (action.type === 'FIRE') {
             // Check if bullet already active
             const hasActiveBullet = this.bullets.some(b => b.owner === tankId);
-            if (hasActiveBullet) return; // Fail silently (waste turn)
+            if (hasActiveBullet) {
+                tank.lastFeedback = 'RELOADING';
+                return; // Fail silently (waste turn)
+            }
 
             // Spawn bullet
             const dir = DIRS[tank.facing];
@@ -239,6 +255,7 @@ export class BattleManager {
             if (!this.grid.isValid(startX, startY)) {
                 // Hit wall/boundary immediately
                 this.events.push({ type: 'EXPLOSION', x: startX, y: startY, owner: tankId });
+                tank.lastFeedback = 'BLOCKED';
                 return;
             }
 
@@ -270,14 +287,22 @@ export class BattleManager {
         const p2Move = intents.P2;
 
         // 1. Check Target Validity (Walls)
-        if (p1Move && !this.grid.isValid(p1Move.targetX, p1Move.targetY)) delete intents.P1;
-        if (p2Move && !this.grid.isValid(p2Move.targetX, p2Move.targetY)) delete intents.P2;
+        if (p1Move && !this.grid.isValid(p1Move.targetX, p1Move.targetY)) {
+            this.tanks.P1.lastFeedback = 'WALL';
+            delete intents.P1;
+        }
+        if (p2Move && !this.grid.isValid(p2Move.targetX, p2Move.targetY)) {
+            this.tanks.P2.lastFeedback = 'WALL';
+            delete intents.P2;
+        }
 
         // 2. Check Head-on Collision (Swapping places)
         // If P1 wants P2's spot AND P2 wants P1's spot -> Cancel both
         if (intents.P1 && intents.P2) {
              if (intents.P1.targetX === this.tanks.P2.x && intents.P1.targetY === this.tanks.P2.y &&
                  intents.P2.targetX === this.tanks.P1.x && intents.P2.targetY === this.tanks.P1.y) {
+                 this.tanks.P1.lastFeedback = 'COLLISION';
+                 this.tanks.P2.lastFeedback = 'COLLISION';
                  delete intents.P1;
                  delete intents.P2;
              }
@@ -286,6 +311,8 @@ export class BattleManager {
         // 3. Check Same Target Collision
         if (intents.P1 && intents.P2) {
             if (intents.P1.targetX === intents.P2.targetX && intents.P1.targetY === intents.P2.targetY) {
+                this.tanks.P1.lastFeedback = 'COLLISION';
+                this.tanks.P2.lastFeedback = 'COLLISION';
                 delete intents.P1;
                 delete intents.P2;
             }
@@ -293,10 +320,16 @@ export class BattleManager {
 
         // 4. Check Collision with Stationary Tank
         if (intents.P1) {
-             if (intents.P1.targetX === this.tanks.P2.x && intents.P1.targetY === this.tanks.P2.y) delete intents.P1;
+             if (intents.P1.targetX === this.tanks.P2.x && intents.P1.targetY === this.tanks.P2.y) {
+                this.tanks.P1.lastFeedback = 'BLOCKED';
+                delete intents.P1;
+             }
         }
         if (intents.P2) {
-             if (intents.P2.targetX === this.tanks.P1.x && intents.P2.targetY === this.tanks.P1.y) delete intents.P2;
+             if (intents.P2.targetX === this.tanks.P1.x && intents.P2.targetY === this.tanks.P1.y) {
+                this.tanks.P2.lastFeedback = 'BLOCKED';
+                delete intents.P2;
+             }
         }
 
         // Apply what's left

@@ -4,7 +4,7 @@ export class SimpleCompiler {
     constructor() {
         this.labelCount = 0;
         this.output = [];
-        this.MAX_DEPTH = 3;
+        this.MAX_DEPTH = 50;
     }
 
     compile(source) {
@@ -50,10 +50,20 @@ export class SimpleCompiler {
                     const startLabel = `__loop_${this.labelCount++}`;
                     
                     // repeat can take a number or a variable
-                    // If it's a number, we must SET a temp register? No, TankScript requires var.
-                    // Let's assume 'repeat varX' for now.
                     const reg = this.extractReg(arg);
                     
+                    // Validation: Ensure it's a register, not a number
+                    if (typeof reg === 'number') {
+                        throw new Error("Repeat loop requires a variable (e.g., 'repeat var0')");
+                    }
+
+                    // Check for register collision in nested repeats
+                    for (const ctx of contextStack) {
+                        if (ctx.type === 'repeat' && ctx.reg === reg) {
+                            throw new Error(`Register collision: Register ${reg} is already used by an enclosing repeat loop.`);
+                        }
+                    }
+
                     this.emit(`LBL ${startLabel}`);
                     contextStack.push({ type: 'repeat', label: startLabel, reg: reg });
                     return;

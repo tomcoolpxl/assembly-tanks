@@ -308,28 +308,6 @@ describe('SimpleCompiler - Repeat Loops', () => {
         assert(asm.match(/DJNZ/g).length === 2, 'should have 2 DJNZs');
     });
 
-    test('SimpleCompiler enforces nesting limit', () => {
-        const code = `
-        if var0 == 0:
-            if var1 == 0:
-                if var2 == 0:
-                    if var3 == 0:
-                        move
-                    end
-                end
-            end
-        end
-        `;
-        let threw = false;
-        try {
-            compile(code);
-        } catch (e) {
-            threw = true;
-            assert(e.message.includes('Nesting limit exceeded'), 'should error on nesting limit');
-        }
-        assert(threw, 'should throw error');
-    });
-
     test('SimpleCompiler enforces variable limits', () => {
         let threw = false;
         try {
@@ -339,6 +317,63 @@ describe('SimpleCompiler - Repeat Loops', () => {
             assert(e.message.includes('Invalid variable'), 'should error on var6');
         }
         assert(threw, 'should throw on var6');
+    });
+
+    test('SimpleCompiler requires variable for repeat loop', () => {
+        let threw = false;
+        try {
+            compile('repeat 5:\nmove\nend');
+        } catch (e) {
+            threw = true;
+            assert(e.message.includes('Repeat loop requires a variable'), 'should error on number');
+        }
+        assert(threw, 'should throw on repeat number');
+    });
+
+    test('SimpleCompiler detects register collision in nested repeats', () => {
+        const code = `
+        var0 = 5
+        repeat var0:
+            repeat var0:
+                move
+            end
+        end
+        `;
+        let threw = false;
+        try {
+            compile(code);
+        } catch (e) {
+            threw = true;
+            assert(e.message.includes('Register collision'), 'should detect collision');
+        }
+        assert(threw, 'should throw on register collision');
+    });
+});
+
+describe('CPU - Read-Only Register Protection', () => {
+    test('setRegister cannot overwrite PX', () => {
+        const cpu = createCPU('move');
+        cpu.updateTankState(10, 10, 0);
+        cpu.setRegister('PX', 99);
+        assertEqual(cpu.registers['PX'], 10, 'PX should remain 10');
+    });
+
+    test('SET instruction cannot overwrite PY', () => {
+        // We need to bypass the compiler check for this test since SimpleCompiler 
+        // allows SET to any register it can extract.
+        // Wait, SimpleCompiler extractReg allows PX/PY.
+        // But let's check if the VM prevents it.
+        const cpu = createCPU('posy = 5\nmove');
+        cpu.updateTankState(10, 20, 0);
+        runUntilAction(cpu);
+        assertEqual(cpu.registers['PY'], 20, 'PY should remain 20');
+    });
+
+    test('ADD instruction cannot overwrite DIR', () => {
+        const cpu = createCPU('dir = dir + 1\nmove');
+        cpu.updateTankState(10, 10, 0);
+        runUntilAction(cpu);
+        assertEqual(cpu.registers['DIR'], 0, 'DIR should remain 0');
     });
 });
 

@@ -44,12 +44,7 @@ const compiler = new SimpleCompiler();
 const tokenizer = new Tokenizer();
 const parser = new Parser();
 
-// Note: Use var0 == var0 for infinite loops since CMP requires register as first arg
-// posx/posy/dir = own position (instant, free)
-// ping(x,y) = get ENEMY position (costs 1 turn)
-// scan(dist,type) = raycast forward, type: 0=empty, 1=wall, 2=enemy (costs 1 turn)
-// wait = do nothing for 1 turn
-// dir values: 0=East, 1=South, 2=West, 3=North
+// Strategies
 const STRATEGIES = {
     HUNTER: `# --- Hunter ---
 # Ping for enemy, chase them, scan and destroy
@@ -337,8 +332,29 @@ selP2.addEventListener('change', () => {
     if (STRATEGIES[selP2.value]) scriptP2.value = STRATEGIES[selP2.value];
 });
 
+// UI Updater
+const REGISTERS = ['PC', 'ACC', 'CMP', 'R0', 'R1', 'R2', 'R3', 'R4', 'R5', 'PX', 'PY', 'DIR', 'HP', 'AMMO'];
+
+// Error Helper
+function showError(prefix, msg) {
+    const el = document.getElementById(prefix.toLowerCase() + '-error');
+    if (el) {
+        el.textContent = msg;
+        el.style.display = 'block';
+    }
+}
+
+function clearError(prefix) {
+    const el = document.getElementById(prefix.toLowerCase() + '-error');
+    if (el) {
+        el.style.display = 'none';
+        el.textContent = '';
+    }
+}
+
 // Compile a single player's script
 function compilePlayer(prefix, scriptEl, viewerEl, machineEl) {
+    clearError(prefix);
     try {
         const asm = compiler.compile(scriptEl.value);
         const tokens = tokenizer.tokenize(asm);
@@ -351,7 +367,7 @@ function compilePlayer(prefix, scriptEl, viewerEl, machineEl) {
 
         return { asm, program, labels };
     } catch (e) {
-        alert(`${prefix} Compile Error: ${e.message}`);
+        showError(prefix, `Compile Error: ${e.message}`);
         return null;
     }
 }
@@ -366,6 +382,8 @@ btnCompileP2.addEventListener('click', () => {
 });
 
 btnRun.addEventListener('click', () => {
+    clearError('P1');
+    clearError('P2');
     try {
         // Compile TankScript to Assembly
         const p1Asm = compiler.compile(scriptP1.value);
@@ -395,7 +413,11 @@ btnRun.addEventListener('click', () => {
         });
         window.dispatchEvent(event);
     } catch (e) {
-        alert("Compile Error: " + e.message);
+        // If P1 failed, show P1 error, etc.
+        // Simple heuristic: if message starts with P1 or P2
+        if (e.message.startsWith('P1')) showError('P1', e.message);
+        else if (e.message.startsWith('P2')) showError('P2', e.message);
+        else alert(e.message); // Fallback
     }
 });
 
@@ -440,9 +462,6 @@ levelSelect.addEventListener('change', () => {
         detail: { level: parseInt(levelSelect.value) }
     }));
 });
-
-// UI Updater
-const REGISTERS = ['PC', 'ACC', 'CMP', 'R0', 'R1', 'R2', 'R3', 'R4', 'R5', 'PX', 'PY', 'DIR'];
 
 window.addEventListener('update-ui', (e) => {
     const state = e.detail;
@@ -515,6 +534,28 @@ function renderMachineCode(container, program) {
 
 function updateCPU(prefix, tankData) {
     if (!tankData || !tankData.debugRegisters) return;
+
+    // Update Status Line
+    const statusEl = document.getElementById(`${prefix}-status`);
+    if (statusEl) {
+        let statusText = 'IDLE';
+        let color = '#aaa';
+
+        if (tankData.hp <= 0) {
+            statusText = 'DESTROYED';
+            color = '#f00';
+        } else if (tankData.lastFeedback) {
+            // High-level feedback (e.g. RELOADING, BLOCKED)
+            statusText = `FAIL (${tankData.lastFeedback})`;
+            color = '#f66'; // Red-ish
+        } else if (tankData.lastAction) {
+            statusText = tankData.lastAction;
+            color = '#4f4'; // Green
+        }
+
+        statusEl.textContent = statusText;
+        statusEl.style.color = color;
+    }
 
     const regs = tankData.debugRegisters;
 

@@ -134,6 +134,7 @@
                     </select>
                 </div>
             </div>
+            <div id="p1-error" class="error-msg" style="color: #f66; font-size: 11px; margin-bottom: 5px; display: none;"></div>
             <div class="column-headers">
                 <span class="machine-header">Machine<span class="info-icon" data-help="machine">i</span></span>
                 <span class="asm-header">Assembler<span class="info-icon" data-help="assembler">i</span></span>
@@ -141,21 +142,37 @@
             </div>
             <div class="player-section">
                 <div class="cpu-panel" id="p1-cpu">
+                    <!-- Status Header -->
+                    <div class="reg-row" style="background: #222; border-bottom: 2px solid #444;">
+                        <span class="reg-lbl">STS</span><span class="reg-val" id="p1-status" style="font-size: 10px; color: #aaa;">IDLE</span>
+                    </div>
+                    
+                    <!-- Compact Read-Only Grid -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 2px; margin-bottom: 5px; font-size: 10px; text-align: center; background: #111; padding: 2px;">
+                        <div title="Position X">PX: <span id="p1-PX" style="color:#0f0">0</span></div>
+                        <div title="Position Y">PY: <span id="p1-PY" style="color:#0f0">0</span></div>
+                        <div title="Direction">DIR: <span id="p1-DIR" style="color:#fa0">0</span></div>
+                        <div title="Health">HP: <span id="p1-HP" style="color:#f00">3</span></div>
+                        <div title="Ammo">AMMO: <span id="p1-AMMO" style="color:#0ff">1</span></div>
+                        <div></div>
+                    </div>
+
+                    <!-- Control Registers -->
                     <div class="reg-row"><span class="reg-lbl">PC</span><span class="reg-val" id="p1-PC">0</span><span class="reg-bin" id="p1-PC-bin">00000000</span></div>
                     <div class="reg-row"><span class="reg-lbl">ACC</span><span class="reg-val" id="p1-ACC">0</span><span class="reg-bin" id="p1-ACC-bin">00000000</span></div>
                     <div class="reg-row"><span class="reg-lbl">CMP</span><span class="reg-val" id="p1-CMP">0</span><span class="reg-bin" id="p1-CMP-bin">00000000</span></div>
-                    <div class="reg-row"><span class="reg-lbl">R0</span><span class="reg-val" id="p1-R0">0</span><span class="reg-bin" id="p1-R0-bin">00000000</span></div>
-                    <div class="reg-row"><span class="reg-lbl">R1</span><span class="reg-val" id="p1-R1">0</span><span class="reg-bin" id="p1-R1-bin">00000000</span></div>
-                    <div class="reg-row"><span class="reg-lbl">R2</span><span class="reg-val" id="p1-R2">0</span><span class="reg-bin" id="p1-R2-bin">00000000</span></div>
-                    <div class="reg-row"><span class="reg-lbl">R3</span><span class="reg-val" id="p1-R3">0</span><span class="reg-bin" id="p1-R3-bin">00000000</span></div>
-                    <div class="reg-row"><span class="reg-lbl">R4</span><span class="reg-val" id="p1-R4">0</span><span class="reg-bin" id="p1-R4-bin">00000000</span></div>
-                    <div class="reg-row"><span class="reg-lbl">R5</span><span class="reg-val" id="p1-R5">0</span><span class="reg-bin" id="p1-R5-bin">00000000</span></div>
-                    <br>
-                    <div class="reg-row"><span class="reg-lbl">PX</span><span class="reg-val" id="p1-PX">0</span><span class="reg-bin" id="p1-PX-bin">00000000</span></div>
-                    <div class="reg-row"><span class="reg-lbl">PY</span><span class="reg-val" id="p1-PY">0</span><span class="reg-bin" id="p1-PY-bin">00000000</span></div>
-                    <div class="reg-row"><span class="reg-lbl">DIR</span><span class="reg-val" id="p1-DIR">0</span><span class="reg-bin" id="p1-DIR-bin">00000000</span></div>
-                    <br>
-                    <div class="reg-row"><span class="reg-lbl">IR</span><span class="reg-val" id="p1-IR">-</span><span class="reg-bin" id="p1-IR-bin">00000000</span></div>
+                    
+                    <!-- Variables -->
+                    <div style="margin-top: 5px; border-top: 1px solid #333;">
+                        <div class="reg-row"><span class="reg-lbl">R0</span><span class="reg-val" id="p1-R0">0</span><span class="reg-bin" id="p1-R0-bin">00000000</span></div>
+                        <div class="reg-row"><span class="reg-lbl">R1</span><span class="reg-val" id="p1-R1">0</span><span class="reg-bin" id="p1-R1-bin">00000000</span></div>
+                        <div class="reg-row"><span class="reg-lbl">R2</span><span class="reg-val" id="p1-R2">0</span><span class="reg-bin" id="p1-R2-bin">00000000</span></div>
+                        <div class="reg-row"><span class="reg-lbl">R3</span><span class="reg-val" id="p1-R3">0</span><span class="reg-bin" id="p1-R3-bin">00000000</span></div>
+                        <div class="reg-row"><span class="reg-lbl">R4</span><span class="reg-val" id="p1-R4">0</span><span class="reg-bin" id="p1-R4-bin">00000000</span></div>
+                        <div class="reg-row"><span class="reg-lbl">R5</span><span class="reg-val" id="p1-R5">0</span><span class="reg-bin" id="p1-R5-bin">00000000</span></div>
+                    </div>
+
+                    <div class="reg-row" style="margin-top: 5px; border-top: 1px solid #555;"><span class="reg-lbl">IR</span><span class="reg-val" id="p1-IR">-</span><span class="reg-bin" id="p1-IR-bin">00000000</span></div>
                 </div>
 
                 <div class="machine-panel">
@@ -186,6 +203,7 @@
                     </select>
                 </div>
             </div>
+            <div id="p2-error" class="error-msg" style="color: #f66; font-size: 11px; margin-bottom: 5px; display: none;"></div>
             <div class="column-headers">
                 <span class="machine-header">Machine<span class="info-icon" data-help="machine">i</span></span>
                 <span class="asm-header">Assembler<span class="info-icon" data-help="assembler">i</span></span>
@@ -193,21 +211,37 @@
             </div>
             <div class="player-section">
                 <div class="cpu-panel" id="p2-cpu">
+                    <!-- Status Header -->
+                    <div class="reg-row" style="background: #222; border-bottom: 2px solid #444;">
+                        <span class="reg-lbl">STS</span><span class="reg-val" id="p2-status" style="font-size: 10px; color: #aaa;">IDLE</span>
+                    </div>
+
+                    <!-- Compact Read-Only Grid -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 2px; margin-bottom: 5px; font-size: 10px; text-align: center; background: #111; padding: 2px;">
+                        <div title="Position X">PX: <span id="p2-PX" style="color:#0f0">0</span></div>
+                        <div title="Position Y">PY: <span id="p2-PY" style="color:#0f0">0</span></div>
+                        <div title="Direction">DIR: <span id="p2-DIR" style="color:#fa0">0</span></div>
+                        <div title="Health">HP: <span id="p2-HP" style="color:#f00">3</span></div>
+                        <div title="Ammo">AMMO: <span id="p2-AMMO" style="color:#0ff">1</span></div>
+                        <div></div>
+                    </div>
+
+                    <!-- Control Registers -->
                     <div class="reg-row"><span class="reg-lbl">PC</span><span class="reg-val" id="p2-PC">0</span><span class="reg-bin" id="p2-PC-bin">00000000</span></div>
                     <div class="reg-row"><span class="reg-lbl">ACC</span><span class="reg-val" id="p2-ACC">0</span><span class="reg-bin" id="p2-ACC-bin">00000000</span></div>
                     <div class="reg-row"><span class="reg-lbl">CMP</span><span class="reg-val" id="p2-CMP">0</span><span class="reg-bin" id="p2-CMP-bin">00000000</span></div>
-                    <div class="reg-row"><span class="reg-lbl">R0</span><span class="reg-val" id="p2-R0">0</span><span class="reg-bin" id="p2-R0-bin">00000000</span></div>
-                    <div class="reg-row"><span class="reg-lbl">R1</span><span class="reg-val" id="p2-R1">0</span><span class="reg-bin" id="p2-R1-bin">00000000</span></div>
-                    <div class="reg-row"><span class="reg-lbl">R2</span><span class="reg-val" id="p2-R2">0</span><span class="reg-bin" id="p2-R2-bin">00000000</span></div>
-                    <div class="reg-row"><span class="reg-lbl">R3</span><span class="reg-val" id="p2-R3">0</span><span class="reg-bin" id="p2-R3-bin">00000000</span></div>
-                    <div class="reg-row"><span class="reg-lbl">R4</span><span class="reg-val" id="p2-R4">0</span><span class="reg-bin" id="p2-R4-bin">00000000</span></div>
-                    <div class="reg-row"><span class="reg-lbl">R5</span><span class="reg-val" id="p2-R5">0</span><span class="reg-bin" id="p2-R5-bin">00000000</span></div>
-                    <br>
-                    <div class="reg-row"><span class="reg-lbl">PX</span><span class="reg-val" id="p2-PX">0</span><span class="reg-bin" id="p2-PX-bin">00000000</span></div>
-                    <div class="reg-row"><span class="reg-lbl">PY</span><span class="reg-val" id="p2-PY">0</span><span class="reg-bin" id="p2-PY-bin">00000000</span></div>
-                    <div class="reg-row"><span class="reg-lbl">DIR</span><span class="reg-val" id="p2-DIR">0</span><span class="reg-bin" id="p2-DIR-bin">00000000</span></div>
-                    <br>
-                    <div class="reg-row"><span class="reg-lbl">IR</span><span class="reg-val" id="p2-IR">-</span><span class="reg-bin" id="p2-IR-bin">00000000</span></div>
+
+                    <!-- Variables -->
+                    <div style="margin-top: 5px; border-top: 1px solid #333;">
+                        <div class="reg-row"><span class="reg-lbl">R0</span><span class="reg-val" id="p2-R0">0</span><span class="reg-bin" id="p2-R0-bin">00000000</span></div>
+                        <div class="reg-row"><span class="reg-lbl">R1</span><span class="reg-val" id="p2-R1">0</span><span class="reg-bin" id="p2-R1-bin">00000000</span></div>
+                        <div class="reg-row"><span class="reg-lbl">R2</span><span class="reg-val" id="p2-R2">0</span><span class="reg-bin" id="p2-R2-bin">00000000</span></div>
+                        <div class="reg-row"><span class="reg-lbl">R3</span><span class="reg-val" id="p2-R3">0</span><span class="reg-bin" id="p2-R3-bin">00000000</span></div>
+                        <div class="reg-row"><span class="reg-lbl">R4</span><span class="reg-val" id="p2-R4">0</span><span class="reg-bin" id="p2-R4-bin">00000000</span></div>
+                        <div class="reg-row"><span class="reg-lbl">R5</span><span class="reg-val" id="p2-R5">0</span><span class="reg-bin" id="p2-R5-bin">00000000</span></div>
+                    </div>
+                    
+                    <div class="reg-row" style="margin-top: 5px; border-top: 1px solid #555;"><span class="reg-lbl">IR</span><span class="reg-val" id="p2-IR">-</span><span class="reg-bin" id="p2-IR-bin">00000000</span></div>
                 </div>
 
                 <div class="machine-panel">

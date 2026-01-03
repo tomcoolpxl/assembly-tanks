@@ -18,6 +18,8 @@ export class CPU {
             [REGISTERS.PX]: 0,   // Tank X position (read-only, set by BattleManager)
             [REGISTERS.PY]: 0,   // Tank Y position (read-only, set by BattleManager)
             [REGISTERS.DIR]: 0,  // Tank direction (read-only, set by BattleManager)
+            [REGISTERS.HP]: 0,   // Tank HP (read-only)
+            [REGISTERS.AMMO]: 0, // Tank Ammo (read-only)
         };
 
         this.yieldAction = null; // Output for the Simulator (e.g., { type: 'MOVE', direction: 'F' })
@@ -106,8 +108,11 @@ export class CPU {
                 if (this.registers.CMP <= 0) this.jump(args[0]);
                 break;
             case OPCODES.DJNZ:
-                this.registers[args[0]]--;
-                if (this.registers[args[0]] !== 0) this.jump(args[1]);
+                // Ensure args[0] is a valid writable register
+                if (this.registers[args[0]] !== undefined && !READ_ONLY_REGISTERS.includes(args[0])) {
+                    this.registers[args[0]]--;
+                    if (this.registers[args[0]] !== 0) this.jump(args[1]);
+                }
                 break;
 
             // --- MATH ---
@@ -159,15 +164,17 @@ export class CPU {
     
     // External Input: Used by Simulator to write SCAN results
     setRegister(reg, val) {
-        if (this.registers[reg] !== undefined) {
+        if (this.registers[reg] !== undefined && !READ_ONLY_REGISTERS.includes(reg)) {
             this.registers[reg] = val;
         }
     }
 
     // Update tank position and direction (called by BattleManager before each step)
-    updateTankState(x, y, direction) {
+    updateTankState(x, y, direction, hp, ammo) {
         this.registers[REGISTERS.PX] = x;
         this.registers[REGISTERS.PY] = y;
         this.registers[REGISTERS.DIR] = direction;
+        this.registers[REGISTERS.HP] = hp;
+        this.registers[REGISTERS.AMMO] = ammo;
     }
 }
