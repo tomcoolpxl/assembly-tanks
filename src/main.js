@@ -376,6 +376,20 @@ let simulationRunning = false;
 
 const battleManager = new BattleManager();
 
+// Initialize view with initial state after Phaser scene is ready
+game.events.once('ready', () => {
+    window.dispatchEvent(new CustomEvent('reset-sim', {
+        detail: {
+            level: 1,
+            walls: Array.from(battleManager.grid.walls),
+            tanks: {
+                P1: { x: battleManager.tanks.P1.x, y: battleManager.tanks.P1.y, facing: battleManager.tanks.P1.facing },
+                P2: { x: battleManager.tanks.P2.x, y: battleManager.tanks.P2.y, facing: battleManager.tanks.P2.facing }
+            }
+        }
+    }));
+});
+
 function updateUIState(state) {
     if (!state) return;
     updateCPU('p1', state.tanks.P1);

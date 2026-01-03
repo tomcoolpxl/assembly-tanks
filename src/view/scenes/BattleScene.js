@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
+import { TANK_IDS } from '../../constants.js';
 
-export const TANK_IDS = { P1: 'P1', P2: 'P2' };
+export { TANK_IDS };
 
 export class BattleScene extends Phaser.Scene {
     constructor() {

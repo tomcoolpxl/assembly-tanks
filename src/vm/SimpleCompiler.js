@@ -216,17 +216,20 @@ export class SimpleCompiler {
 
     parseCondition(condStr, failLabel) {
         let op = '', asmJump = '';
-        
+
+        // Order matters: check multi-char operators before single-char
         if (condStr.includes('==')) { op = '=='; asmJump = 'JNE'; }
         else if (condStr.includes('!=')) { op = '!='; asmJump = 'JE'; }
-        else if (condStr.includes('>')) { op = '>'; asmJump = 'JLE'; } // Jump if Less or Equal (False)
-        else if (condStr.includes('<')) { op = '<'; asmJump = 'JGE'; } // Jump if Greater or Equal (False)
+        else if (condStr.includes('>=')) { op = '>='; asmJump = 'JL'; }  // Jump if Less (False)
+        else if (condStr.includes('<=')) { op = '<='; asmJump = 'JG'; }  // Jump if Greater (False)
+        else if (condStr.includes('>')) { op = '>'; asmJump = 'JLE'; }   // Jump if Less or Equal (False)
+        else if (condStr.includes('<')) { op = '<'; asmJump = 'JGE'; }   // Jump if Greater or Equal (False)
         else throw new Error(`Unsupported operator in condition: "${condStr}"`);
 
         const parts = condStr.split(op);
         const p1 = this.extractReg(parts[0]);
         const p2 = this.extractReg(parts[1]);
-        
+
         this.emit(`CMP ${p1}, ${p2}`);
         this.emit(`${asmJump} ${failLabel}`);
     }

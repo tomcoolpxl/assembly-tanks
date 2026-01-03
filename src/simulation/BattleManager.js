@@ -2,8 +2,9 @@ import { CPU } from '../vm/CPU.js';
 import { Tokenizer } from '../vm/Tokenizer.js';
 import { Parser } from '../vm/Parser.js';
 import { Grid } from './Grid.js';
+import { TANK_IDS } from '../constants.js';
 
-export const TANK_IDS = { P1: 'P1', P2: 'P2' };
+export { TANK_IDS };
 const DIRS = {
     0: { x: 1, y: 0 },  // East/Right
     1: { x: 0, y: 1 },  // South/Down
@@ -196,11 +197,12 @@ export class BattleManager {
         if (enemy.hp > 0) {
             tank.cpu.setRegister(action.destX, enemy.x);
             tank.cpu.setRegister(action.destY, enemy.y);
+            this.addEvent('PING', { tankId: tankId, x: tank.x, y: tank.y, enemyX: enemy.x, enemyY: enemy.y });
         } else {
             tank.cpu.setRegister(action.destX, -1);
             tank.cpu.setRegister(action.destY, -1);
+            this.addEvent('PING', { tankId: tankId, x: tank.x, y: tank.y, enemyX: -1, enemyY: -1 });
         }
-        this.addEvent('PING', { tankId: tankId, x: tank.x, y: tank.y, enemyX: enemy.x, enemyY: enemy.y });
     }
 
     resolveAction(tankId, action, intents) {
@@ -308,6 +310,7 @@ export class BattleManager {
                 }
 
                 for (const tid of ['P1', 'P2']) {
+                    if (tid === b.owner) continue; // Bullets can't hit their owner
                     const t = this.tanks[tid];
                     if (t.hp > 0 && t.x === b.x && t.y === b.y) {
                         t.hp--;

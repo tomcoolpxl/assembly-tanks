@@ -132,7 +132,9 @@ export class CPU {
         if (addr !== undefined) {
             this.registers.PC = addr;
         } else {
-            console.error(`Runtime Error: Label '${labelName}' not found.`);
+            // Label not found - halt execution
+            this.isDone = true;
+            this.registers.PC = this.program.length;
         }
     }
 

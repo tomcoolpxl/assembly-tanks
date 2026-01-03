@@ -5,14 +5,6 @@ export class Grid {
         this.walls = new Set(); // Stores "x,y" strings
     }
 
-    wrapX(x) {
-        return x; // No wrapping
-    }
-
-    wrapY(y) {
-        return y; // No wrapping
-    }
-
     isWall(x, y) {
         return this.walls.has(`${x},${y}`);
     }

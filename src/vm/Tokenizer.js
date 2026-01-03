@@ -54,8 +54,8 @@ export class Tokenizer {
             return { type: TOKEN_TYPES.COMMA, value: ',', line };
         }
 
-        // Is Register? (R0-R5, ACC, CMP, PC, PX, PY, DIR)
-        if (/^(R[0-5]|ACC|CMP|PC|PX|PY|DIR)$/.test(upper)) {
+        // Is Register? (R0-R5, ACC, CMP, PC, PX, PY, DIR, HP, AMMO)
+        if (/^(R[0-5]|ACC|CMP|PC|PX|PY|DIR|HP|AMMO)$/.test(upper)) {
             return { type: TOKEN_TYPES.REGISTER, value: upper, line };
         }
 
