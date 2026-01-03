@@ -454,14 +454,27 @@ btnCompileP2.addEventListener('click', () => {
 // Main Control Button Handlers
 btnRun.addEventListener('click', () => {
     if (simulationRunning && !isFastForward) return;
-    
+
     const p1 = compilePlayer('P1', scriptP1, viewerP1, machineP1, chkRawP1 ? chkRawP1.checked : false);
     const p2 = compilePlayer('P2', scriptP2, viewerP2, machineP2, chkRawP2 ? chkRawP2.checked : false);
     if (!p1 || !p2) return;
-    
+
     // Always reload code on RUN to ensure latest version
     const res = battleManager.loadCode(p1.asm, p2.asm);
     if (!res.success) { showError('P1', res.error); return; }
+
+    // Send walls and initial tank state to view
+    const level = parseInt(levelSelect.value);
+    window.dispatchEvent(new CustomEvent('run-sim', {
+        detail: {
+            level,
+            walls: Array.from(battleManager.grid.walls),
+            tanks: {
+                P1: { x: battleManager.tanks.P1.x, y: battleManager.tanks.P1.y, facing: battleManager.tanks.P1.facing },
+                P2: { x: battleManager.tanks.P2.x, y: battleManager.tanks.P2.y, facing: battleManager.tanks.P2.facing }
+            }
+        }
+    }));
 
     isFastForward = false;
     startSimulationLoop();
@@ -517,12 +530,22 @@ btnReset.addEventListener('click', () => {
     stopSimulation();
     const level = parseInt(levelSelect.value);
     battleManager.setupArena(level);
-    battleManager.resetTurnState(); 
+    battleManager.resetTurnState();
     const p1 = compilePlayer('P1', scriptP1, viewerP1, machineP1, chkRawP1 ? chkRawP1.checked : false);
     const p2 = compilePlayer('P2', scriptP2, viewerP2, machineP2, chkRawP2 ? chkRawP2.checked : false);
     if (p1 && p2) battleManager.loadCode(p1.asm, p2.asm);
     updateUIState(battleManager.getState());
-    window.dispatchEvent(new CustomEvent('reset-sim', { detail: { level: level } }));
+    // Send walls and initial tank state to view
+    window.dispatchEvent(new CustomEvent('reset-sim', {
+        detail: {
+            level,
+            walls: Array.from(battleManager.grid.walls),
+            tanks: {
+                P1: { x: battleManager.tanks.P1.x, y: battleManager.tanks.P1.y, facing: battleManager.tanks.P1.facing },
+                P2: { x: battleManager.tanks.P2.x, y: battleManager.tanks.P2.y, facing: battleManager.tanks.P2.facing }
+            }
+        }
+    }));
     btnStop.classList.remove('active');
 });
 
@@ -589,14 +612,9 @@ function updateCPU(prefix, tankData) {
     }
     const regs = tankData.debugRegisters;
     
-    // Update Total Ops (New)
+    // Update Total Ops
     const totalOpsEl = document.getElementById(`${prefix}-totalOps`);
-    if (totalOpsEl) totalOpsEl.textContent = tankData.totalOps || 0; // Assuming element exists? 
-    // Wait, I didn't add p1-totalOps to index.html yet! 
-    // The previous instruction asked for it but I only updated BattleScene HUD.
-    // I should check if user wants it in the CPU panel too. 
-    // "Implement UI element to display current CPU Tick count" - was likely for HUD.
-    // But displaying it in CPU panel is good practice.
+    if (totalOpsEl) totalOpsEl.textContent = tankData.totalOps || 0;
     
     const pxEl = document.getElementById(`${prefix}-PX`); if(pxEl) pxEl.textContent = regs['PX'];
     const pyEl = document.getElementById(`${prefix}-PY`); if(pyEl) pyEl.textContent = regs['PY'];

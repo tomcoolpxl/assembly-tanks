@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
-import { BattleManager, TANK_IDS } from '../../simulation/BattleManager.js';
+
+export const TANK_IDS = { P1: 'P1', P2: 'P2' };
 
 export class BattleScene extends Phaser.Scene {
     constructor() {
@@ -12,7 +13,8 @@ export class BattleScene extends Phaser.Scene {
         this.tickDuration = 500; // ms
         this.normalTickDuration = 500;
         this.fastTickDuration = 50;
-        this.sim = new BattleManager();
+        this.walls = new Set(); // Store walls directly instead of BattleManager
+        this.initialTanks = null; // Store initial tank state from payload
         this.tankSprites = {};
         this.bulletSprites = {}; // Map ID -> Sprite
         this.processedEvents = new Set();
@@ -65,30 +67,39 @@ export class BattleScene extends Phaser.Scene {
     createEntities() {
         if (this.tankSprites.P1) this.tankSprites.P1.destroy();
         if (this.tankSprites.P2) this.tankSprites.P2.destroy();
-        
+
         Object.values(this.bulletSprites).forEach(s => s.destroy());
         this.bulletSprites = {};
-        
+
         this.drawWalls();
 
-        const p1Data = this.sim.tanks.P1;
-        const p2Data = this.sim.tanks.P2;
-        
-        this.tankSprites[TANK_IDS.P1] = this.add.sprite(p1Data.x * 40 + 20, p1Data.y * 40 + 20, 'tank_p1').setOrigin(0.5).setAngle(p1Data.facing * 90);
-        this.tankSprites[TANK_IDS.P2] = this.add.sprite(p2Data.x * 40 + 20, p2Data.y * 40 + 20, 'tank_p2').setOrigin(0.5).setAngle(p2Data.facing * 90);
+        if (!this.initialTanks) return;
+
+        const p1Data = this.initialTanks.P1;
+        const p2Data = this.initialTanks.P2;
+        const halfTile = this.tileSize / 2;
+
+        this.tankSprites[TANK_IDS.P1] = this.add.sprite(p1Data.x * this.tileSize + halfTile, p1Data.y * this.tileSize + halfTile, 'tank_p1').setOrigin(0.5).setAngle(p1Data.facing * 90);
+        this.tankSprites[TANK_IDS.P2] = this.add.sprite(p2Data.x * this.tileSize + halfTile, p2Data.y * this.tileSize + halfTile, 'tank_p2').setOrigin(0.5).setAngle(p2Data.facing * 90);
     }
 
     drawWalls() {
-        if (this.sim && this.sim.grid) {
-             this.sim.grid.walls.forEach(key => {
-                const [x, y] = key.split(',').map(Number);
-                this.add.image(x * 40 + 20, y * 40 + 20, 'wall');
-            });
+        if (this.wallSprites) {
+            this.wallSprites.forEach(s => s.destroy());
         }
+        this.wallSprites = [];
+        const halfTile = this.tileSize / 2;
+        this.walls.forEach(key => {
+            const [x, y] = key.split(',').map(Number);
+            const sprite = this.add.image(x * this.tileSize + halfTile, y * this.tileSize + halfTile, 'wall');
+            this.wallSprites.push(sprite);
+        });
     }
 
     startSimulation(data) {
-        this.sim.setupArena(data.level || 1);
+        // Receive walls and initial tank state from main.js
+        this.walls = new Set(data.walls || []);
+        this.initialTanks = data.tanks || null;
         this.createEntities();
         this.uiGameOver.setText('');
         this.lastLogIndex = 0;
@@ -96,7 +107,9 @@ export class BattleScene extends Phaser.Scene {
     }
 
     resetSimulation(data) {
-        this.sim.setupArena(data.level || 1);
+        // Receive walls and initial tank state from main.js
+        this.walls = new Set(data.walls || []);
+        this.initialTanks = data.tanks || null;
         this.createEntities();
         this.uiInfo.setText("Ready");
         this.uiGameOver.setText('');
@@ -140,10 +153,11 @@ export class BattleScene extends Phaser.Scene {
         // Bullet Persistence Logic
         const currentIds = new Set();
         
+        const halfTile = this.tileSize / 2;
         bullets.forEach(b => {
             currentIds.add(b.id);
-            const targetX = b.x * 40 + 20;
-            const targetY = b.y * 40 + 20;
+            const targetX = b.x * this.tileSize + halfTile;
+            const targetY = b.y * this.tileSize + halfTile;
 
             if (this.bulletSprites[b.id]) {
                 const sprite = this.bulletSprites[b.id];
@@ -184,9 +198,10 @@ export class BattleScene extends Phaser.Scene {
         if (!sprite) return;
         if (data.hp <= 0) { sprite.setVisible(false); return; }
         sprite.setVisible(true);
-        
-        const targetX = data.x * 40 + 20;
-        const targetY = data.y * 40 + 20;
+
+        const halfTile = this.tileSize / 2;
+        const targetX = data.x * this.tileSize + halfTile;
+        const targetY = data.y * this.tileSize + halfTile;
         const targetAngle = data.facing * 90;
 
         if (sprite.targetX !== targetX || sprite.targetY !== targetY || sprite.targetAngle !== targetAngle) {
@@ -207,8 +222,9 @@ export class BattleScene extends Phaser.Scene {
     }
 
     triggerExplosion(gx, gy, ownerId, hitTankId) {
-        const cx = gx * 40 + 20;
-        const cy = gy * 40 + 20;
+        const halfTile = this.tileSize / 2;
+        const cx = gx * this.tileSize + halfTile;
+        const cy = gy * this.tileSize + halfTile;
         
         // Flash Hit Tank
         if (hitTankId && this.tankSprites[hitTankId]) {
@@ -263,8 +279,9 @@ export class BattleScene extends Phaser.Scene {
         let found = false;
 
         if (ex !== -1 && ey !== -1) {
-            const enemyX = ex * 40 + 20;
-            const enemyY = ey * 40 + 20;
+            const halfTile = this.tileSize / 2;
+            const enemyX = ex * this.tileSize + halfTile;
+            const enemyY = ey * this.tileSize + halfTile;
             targetRadius = Phaser.Math.Distance.Between(x, y, enemyX, enemyY);
             found = true;
         }

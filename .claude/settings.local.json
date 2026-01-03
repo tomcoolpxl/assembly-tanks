@@ -2,8 +2,7 @@
   "permissions": {
     "allow": [
       "Bash(npm test)",
-      "Bash(npm install:*)",
-      "WebSearch"
+      "Bash(npm run build:*)"
     ]
   }
 }

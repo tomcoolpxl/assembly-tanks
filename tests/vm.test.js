@@ -972,9 +972,12 @@ describe('BattleManager - Movement', () => {
         const bm = new BattleManager();
         // P1 at (0,4) facing East, should move to (1,4)
         bm.tanks.P1.cpu = mockCPU(() => ({ type: 'MOVE', dir: 'FORWARD' }));
-        bm.tanks.P2.cpu = mockCPU(() => null);
+        bm.tanks.P2.cpu = mockCPU(() => ({ type: 'WAIT' })); // P2 waits
 
-        bm.tick();
+        bm.stepCPU('P1');
+        bm.stepCPU('P2');
+        bm.resolveTurn();
+
         assertEqual(bm.tanks.P1.x, 1, 'P1 moved to x=1');
         assertEqual(bm.tanks.P1.y, 4, 'P1 stayed at y=4');
     });
@@ -984,9 +987,12 @@ describe('BattleManager - Movement', () => {
         bm.tanks.P1.x = 0;
         bm.tanks.P1.facing = 2; // Face West
         bm.tanks.P1.cpu = mockCPU(() => ({ type: 'MOVE', dir: 'FORWARD' }));
-        bm.tanks.P2.cpu = mockCPU(() => null);
+        bm.tanks.P2.cpu = mockCPU(() => ({ type: 'WAIT' }));
 
-        bm.tick();
+        bm.stepCPU('P1');
+        bm.stepCPU('P2');
+        bm.resolveTurn();
+
         assertEqual(bm.tanks.P1.x, 0, 'P1 blocked at boundary');
     });
 
@@ -994,18 +1000,24 @@ describe('BattleManager - Movement', () => {
         const bm = new BattleManager();
         bm.grid.addWall(1, 4); // Wall in front of P1
         bm.tanks.P1.cpu = mockCPU(() => ({ type: 'MOVE', dir: 'FORWARD' }));
-        bm.tanks.P2.cpu = mockCPU(() => null);
+        bm.tanks.P2.cpu = mockCPU(() => ({ type: 'WAIT' }));
 
-        bm.tick();
+        bm.stepCPU('P1');
+        bm.stepCPU('P2');
+        bm.resolveTurn();
+
         assertEqual(bm.tanks.P1.x, 0, 'P1 blocked by wall');
     });
 
     test('tank rotation changes facing', () => {
         const bm = new BattleManager();
         bm.tanks.P1.cpu = mockCPU(() => ({ type: 'ROTATE', dir: 'RIGHT' }));
-        bm.tanks.P2.cpu = mockCPU(() => null);
+        bm.tanks.P2.cpu = mockCPU(() => ({ type: 'WAIT' }));
 
-        bm.tick();
+        bm.stepCPU('P1');
+        bm.stepCPU('P2');
+        bm.resolveTurn();
+
         assertEqual(bm.tanks.P1.facing, 1, 'P1 now faces South');
     });
 });
@@ -1014,9 +1026,12 @@ describe('BattleManager - Bullets', () => {
     test('fire creates bullet in front of tank', () => {
         const bm = new BattleManager();
         bm.tanks.P1.cpu = mockCPU(() => ({ type: 'FIRE' }));
-        bm.tanks.P2.cpu = mockCPU(() => null);
+        bm.tanks.P2.cpu = mockCPU(() => ({ type: 'WAIT' }));
 
-        bm.tick();
+        bm.stepCPU('P1');
+        bm.stepCPU('P2');
+        bm.resolveTurn();
+
         assertEqual(bm.bullets.length, 1, 'one bullet created');
         assertEqual(bm.bullets[0].owner, 'P1', 'bullet owned by P1');
     });
@@ -1024,77 +1039,92 @@ describe('BattleManager - Bullets', () => {
     test('bullet moves 2 tiles per tick', () => {
         const bm = new BattleManager();
         // Manually add a bullet
-        bm.bullets.push({ x: 5, y: 4, dx: 1, dy: 0, owner: 'P1', dist: 0 });
-        bm.tanks.P1.cpu = mockCPU(() => null);
-        bm.tanks.P2.cpu = mockCPU(() => null);
+        bm.bullets.push({ id: 1, x: 5, y: 4, dx: 1, dy: 0, owner: 'P1', dist: 0 });
+        bm.tanks.P1.cpu = mockCPU(() => ({ type: 'WAIT' }));
+        bm.tanks.P2.cpu = mockCPU(() => ({ type: 'WAIT' }));
 
-        bm.tick();
+        bm.stepCPU('P1');
+        bm.stepCPU('P2');
+        bm.resolveTurn(); // This calls updateBullets
+
         assertEqual(bm.bullets[0].x, 7, 'bullet moved 2 tiles');
     });
 
     test('bullet hitting tank reduces HP', () => {
         const bm = new BattleManager();
         // Place bullet right next to P2 (at x=15, y=5)
-        // Bullet at x=13, moving East, will hit at x=15 after moving 2 tiles
-        bm.bullets.push({ x: 13, y: 5, dx: 1, dy: 0, owner: 'P1', dist: 0 });
-        bm.tanks.P1.cpu = mockCPU(() => null);
-        bm.tanks.P2.cpu = mockCPU(() => null);
+        bm.bullets.push({ id: 1, x: 13, y: 5, dx: 1, dy: 0, owner: 'P1', dist: 0 });
+        bm.tanks.P1.cpu = mockCPU(() => ({ type: 'WAIT' }));
+        bm.tanks.P2.cpu = mockCPU(() => ({ type: 'WAIT' }));
 
         const initialHP = bm.tanks.P2.hp;
-        bm.tick();
+        
+        bm.stepCPU('P1');
+        bm.stepCPU('P2');
+        bm.resolveTurn();
+
         assertEqual(bm.tanks.P2.hp, initialHP - 1, 'P2 lost 1 HP');
     });
 
     test('bullet disappears on wall hit', () => {
         const bm = new BattleManager();
         bm.grid.addWall(7, 4);
-        bm.bullets.push({ x: 5, y: 4, dx: 1, dy: 0, owner: 'P1', dist: 0 });
-        bm.tanks.P1.cpu = mockCPU(() => null);
-        bm.tanks.P2.cpu = mockCPU(() => null);
+        bm.bullets.push({ id: 1, x: 5, y: 4, dx: 1, dy: 0, owner: 'P1', dist: 0 });
+        bm.tanks.P1.cpu = mockCPU(() => ({ type: 'WAIT' }));
+        bm.tanks.P2.cpu = mockCPU(() => ({ type: 'WAIT' }));
 
-        bm.tick();
+        bm.stepCPU('P1');
+        bm.stepCPU('P2');
+        bm.resolveTurn();
+
         assertEqual(bm.bullets.length, 0, 'bullet destroyed on wall');
     });
 
     test('bullet disappears on boundary', () => {
         const bm = new BattleManager();
-        // Bullet near right edge
-        bm.bullets.push({ x: 14, y: 4, dx: 1, dy: 0, owner: 'P1', dist: 0 });
-        // Move P2 out of the way
+        bm.bullets.push({ id: 1, x: 14, y: 4, dx: 1, dy: 0, owner: 'P1', dist: 0 });
         bm.tanks.P2.x = 10;
-        bm.tanks.P1.cpu = mockCPU(() => null);
-        bm.tanks.P2.cpu = mockCPU(() => null);
+        bm.tanks.P1.cpu = mockCPU(() => ({ type: 'WAIT' }));
+        bm.tanks.P2.cpu = mockCPU(() => ({ type: 'WAIT' }));
 
-        bm.tick();
+        bm.stepCPU('P1');
+        bm.stepCPU('P2');
+        bm.resolveTurn();
+
         assertEqual(bm.bullets.length, 0, 'bullet destroyed at boundary');
     });
 
     test('only one bullet per tank allowed', () => {
         const bm = new BattleManager();
-        bm.bullets.push({ x: 5, y: 4, dx: 1, dy: 0, owner: 'P1', dist: 0 });
+        bm.bullets.push({ id: 1, x: 5, y: 4, dx: 1, dy: 0, owner: 'P1', dist: 0 });
         bm.tanks.P1.cpu = mockCPU(() => ({ type: 'FIRE' }));
-        bm.tanks.P2.cpu = mockCPU(() => null);
+        bm.tanks.P2.cpu = mockCPU(() => ({ type: 'WAIT' }));
 
-        bm.tick();
+        bm.stepCPU('P1');
+        bm.stepCPU('P2');
+        bm.resolveTurn();
+
         assertEqual(bm.bullets.length, 1, 'still only one P1 bullet');
     });
 
     test('point-blank shot hits immediately', () => {
         const bm = new BattleManager();
-        // Place tanks next to each other
         bm.tanks.P1.x = 5;
         bm.tanks.P1.y = 4;
         bm.tanks.P1.facing = 0; // East
-        bm.tanks.P2.x = 6; // Right next to P1
+        bm.tanks.P2.x = 6; 
         bm.tanks.P2.y = 4;
 
         bm.tanks.P1.cpu = mockCPU(() => ({ type: 'FIRE' }));
-        bm.tanks.P2.cpu = mockCPU(() => null);
+        bm.tanks.P2.cpu = mockCPU(() => ({ type: 'WAIT' }));
 
         const initialHP = bm.tanks.P2.hp;
-        bm.tick();
+        bm.stepCPU('P1');
+        bm.stepCPU('P2');
+        bm.resolveTurn();
+
         assertEqual(bm.tanks.P2.hp, initialHP - 1, 'P2 hit at point blank');
-        assertEqual(bm.bullets.length, 0, 'no bullet created - consumed on impact');
+        assertEqual(bm.bullets.length, 0, 'no bullet created');
     });
 });
 
@@ -1102,12 +1132,14 @@ describe('BattleManager - Game Over', () => {
     test('game over when tank HP reaches 0', () => {
         const bm = new BattleManager();
         bm.tanks.P2.hp = 1;
-        // Bullet will hit P2
-        bm.bullets.push({ x: 13, y: 5, dx: 1, dy: 0, owner: 'P1', dist: 0 });
-        bm.tanks.P1.cpu = mockCPU(() => null);
-        bm.tanks.P2.cpu = mockCPU(() => null);
+        bm.bullets.push({ id: 1, x: 13, y: 5, dx: 1, dy: 0, owner: 'P1', dist: 0 });
+        bm.tanks.P1.cpu = mockCPU(() => ({ type: 'WAIT' }));
+        bm.tanks.P2.cpu = mockCPU(() => ({ type: 'WAIT' }));
 
-        bm.tick();
+        bm.stepCPU('P1');
+        bm.stepCPU('P2');
+        bm.resolveTurn();
+
         assertEqual(bm.tanks.P2.hp, 0, 'P2 has 0 HP');
         assert(bm.isGameOver, 'game is over');
         assertEqual(bm.winner, 'P1', 'P1 wins');
@@ -1119,15 +1151,17 @@ describe('BattleManager - Game Over', () => {
         bm.tanks.P2.hp = 1;
         bm.tanks.P1.x = 5;
         bm.tanks.P2.x = 10;
-        // Bullets crossing
-        bm.bullets.push({ x: 3, y: 4, dx: 1, dy: 0, owner: 'P2', dist: 0 }); // Will hit P1 at x=5
-        bm.bullets.push({ x: 8, y: 5, dx: 1, dy: 0, owner: 'P1', dist: 0 }); // Will hit P2 at x=10
+        bm.bullets.push({ id: 1, x: 3, y: 4, dx: 1, dy: 0, owner: 'P2', dist: 0 }); 
+        bm.bullets.push({ id: 2, x: 8, y: 5, dx: 1, dy: 0, owner: 'P1', dist: 0 });
         bm.tanks.P1.y = 4;
         bm.tanks.P2.y = 5;
-        bm.tanks.P1.cpu = mockCPU(() => null);
-        bm.tanks.P2.cpu = mockCPU(() => null);
+        bm.tanks.P1.cpu = mockCPU(() => ({ type: 'WAIT' }));
+        bm.tanks.P2.cpu = mockCPU(() => ({ type: 'WAIT' }));
 
-        bm.tick();
+        bm.stepCPU('P1');
+        bm.stepCPU('P2');
+        bm.resolveTurn();
+
         assert(bm.isGameOver, 'game is over');
         assertEqual(bm.winner, 'DRAW', 'result is draw');
     });
@@ -1136,8 +1170,6 @@ describe('BattleManager - Game Over', () => {
 describe('BattleManager - Sensors', () => {
     test('SCAN detects enemy in line of sight', () => {
         const bm = new BattleManager();
-        // P1 at (0,4) facing East, P2 at (15,5) - not in line
-        // Move P2 to (10,4) - same row
         bm.tanks.P2.x = 10;
         bm.tanks.P2.y = 4;
 
@@ -1148,9 +1180,12 @@ describe('BattleManager - Sensors', () => {
             if (reg === 'R1') scanResult.type = val;
         };
         bm.tanks.P1.cpu = cpu1;
-        bm.tanks.P2.cpu = mockCPU(() => null);
+        bm.tanks.P2.cpu = mockCPU(() => ({ type: 'WAIT' }));
 
-        bm.tick();
+        bm.stepCPU('P1');
+        bm.stepCPU('P2');
+        bm.resolveTurn();
+
         assertEqual(scanResult.dist, 10, 'enemy at distance 10');
         assertEqual(scanResult.type, 2, 'type 2 = enemy');
     });
@@ -1165,9 +1200,12 @@ describe('BattleManager - Sensors', () => {
             if (reg === 'R1') pingResult.y = val;
         };
         bm.tanks.P1.cpu = cpu1;
-        bm.tanks.P2.cpu = mockCPU(() => null);
+        bm.tanks.P2.cpu = mockCPU(() => ({ type: 'WAIT' }));
 
-        bm.tick();
+        bm.stepCPU('P1');
+        bm.stepCPU('P2');
+        bm.resolveTurn();
+
         assertEqual(pingResult.x, 15, 'enemy X is 15');
         assertEqual(pingResult.y, 5, 'enemy Y is 5');
     });
