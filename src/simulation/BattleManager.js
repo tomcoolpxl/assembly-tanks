@@ -73,6 +73,10 @@ export class BattleManager {
         this.bullets = [];
         this.log = [];
         this.events = [];
+        this._logTick = (tankId, msg) => {
+            const cpu = tankId === 'P1' ? 'CPU_1' : 'CPU_2';
+            this.log.push(`[${cpu} T${String(this.turnCount).padStart(3, '0')}] ${msg}`);
+        };
         this.isGameOver = false;
         this.winner = null;
 
@@ -229,26 +233,35 @@ export class BattleManager {
 
         // Check for game over conditions
         if (this.tanks.P1.hp <= 0 && this.tanks.P2.hp <= 0) {
+            this._logTick('P1', 'P1 destroyed!');
+            this._logTick('P2', 'P2 destroyed!');
             this.isGameOver = true;
             this.winner = 'DRAW';
+            this.log.push('=== DRAW - MUTUAL DESTRUCTION ===');
         } else if (this.tanks.P1.hp <= 0) {
+            this._logTick('P1', 'P1 destroyed!');
             this.isGameOver = true;
             this.winner = 'P2';
+            this.log.push('=== P2 WINS! ===');
         } else if (this.tanks.P2.hp <= 0) {
+            this._logTick('P2', 'P2 destroyed!');
             this.isGameOver = true;
             this.winner = 'P1';
+            this.log.push('=== P1 WINS! ===');
         }
 
         // Check for stalemate (both programs halted)
         if (!this.isGameOver && this.pendingActions.P1?.type === 'HALT' && this.pendingActions.P2?.type === 'HALT') {
             this.isGameOver = true;
             this.winner = 'DRAW (STALEMATE)';
+            this.log.push('=== DRAW - STALEMATE ===');
         }
 
         // Check for turn limit (prevent infinite games)
         if (!this.isGameOver && this.turnCount >= MAX_TURNS) {
             this.isGameOver = true;
             this.winner = 'DRAW (TURN LIMIT)';
+            this.log.push('=== DRAW - TURN LIMIT ===');
         }
 
         this.pendingActions.P1 = null;
@@ -278,10 +291,13 @@ export class BattleManager {
         const enemyId = tankId === 'P1' ? 'P2' : 'P1';
         const enemy = this.tanks[enemyId];
         if (enemy.hp > 0) entityMap.set(`${enemy.x},${enemy.y}`, enemyId);
-        
+
         const result = this.grid.raycast(tank.x, tank.y, dir.x, dir.y, tankId, enemyId, entityMap);
         tank.cpu.setRegister(action.destDist, result.distance);
         tank.cpu.setRegister(action.destType, result.type);
+
+        const typeNames = ['EMPTY', 'WALL', 'TANK'];
+        this._logTick(tankId, `${tankId} scans: ${typeNames[result.type] || 'EMPTY'} at dist ${result.distance}`);
     }
 
     resolvePing(tankId, action) {
@@ -292,10 +308,12 @@ export class BattleManager {
             tank.cpu.setRegister(action.destX, enemy.x);
             tank.cpu.setRegister(action.destY, enemy.y);
             this.addEvent('PING', { tankId: tankId, x: tank.x, y: tank.y, enemyX: enemy.x, enemyY: enemy.y });
+            this._logTick(tankId, `${tankId} pings: enemy at (${enemy.x},${enemy.y})`);
         } else {
             tank.cpu.setRegister(action.destX, -1);
             tank.cpu.setRegister(action.destY, -1);
             this.addEvent('PING', { tankId: tankId, x: tank.x, y: tank.y, enemyX: -1, enemyY: -1 });
+            this._logTick(tankId, `${tankId} pings: no enemy`);
         }
     }
 
@@ -304,9 +322,11 @@ export class BattleManager {
         const tank = this.tanks[tankId];
 
         if (action.type === 'ROTATE') {
+            const dirName = action.dir === 'LEFT' ? 'left' : 'right';
             if (action.dir === 'LEFT') tank.facing = (tank.facing + 3) % 4;
             if (action.dir === 'RIGHT') tank.facing = (tank.facing + 1) % 4;
-        } 
+            this._logTick(tankId, `${tankId} turns ${dirName}`);
+        }
         else if (action.type === 'MOVE') {
             let dirIdx = tank.facing;
             if (action.dir === 'BACKWARD') dirIdx = (dirIdx + 2) % 4;
@@ -314,7 +334,11 @@ export class BattleManager {
         }
         else if (action.type === 'FIRE') {
             const hasActiveBullet = this.bullets.some(b => b.owner === tankId);
-            if (hasActiveBullet) { tank.lastFeedback = 'RELOADING'; return; }
+            if (hasActiveBullet) {
+                tank.lastFeedback = 'RELOADING';
+                this._logTick(tankId, `${tankId} fires (reloading)`);
+                return;
+            }
 
             const dir = DIRS[tank.facing];
             const startX = tank.x + dir.x;
@@ -323,6 +347,7 @@ export class BattleManager {
             if (!this.grid.isValid(startX, startY)) {
                 this.addEvent('EXPLOSION', { x: startX, y: startY, owner: tankId });
                 tank.lastFeedback = 'BLOCKED';
+                this._logTick(tankId, `${tankId} fires (blocked)`);
                 return;
             }
 
@@ -330,13 +355,14 @@ export class BattleManager {
             const enemy = this.tanks[enemyId];
             if (enemy.hp > 0 && enemy.x === startX && enemy.y === startY) {
                 enemy.hp--;
-                this.log.push(`${tankId} hit! HP: ${enemy.hp}`);
+                this._logTick(tankId, `${tankId} fires - direct hit! ${enemyId} HP: ${enemy.hp}`);
                 this.addEvent('EXPLOSION', { x: startX, y: startY, owner: tankId, hitTank: enemyId });
                 return;
             }
 
+            this._logTick(tankId, `${tankId} fires`);
             this.bullets.push({
-                id: this.eventIdCounter++, // Use event counter or separate? Separate is safer but event counter is fine for unique ID
+                id: this.eventIdCounter++,
                 x: startX,
                 y: startY,
                 dx: dir.x,
@@ -397,9 +423,26 @@ export class BattleManager {
             delete intents.P2;
         }
 
-        if (intents.P1) { this.tanks.P1.x = intents.P1.targetX; this.tanks.P1.y = intents.P1.targetY; }
-        if (intents.P2) { this.tanks.P2.x = intents.P2.targetX; this.tanks.P2.y = intents.P2.targetY; }
-        
+        // Log move results
+        if (p1Move) {
+            if (intents.P1) {
+                this.tanks.P1.x = intents.P1.targetX;
+                this.tanks.P1.y = intents.P1.targetY;
+                this._logTick('P1', `P1 moves to (${this.tanks.P1.x},${this.tanks.P1.y})`);
+            } else {
+                this._logTick('P1', `P1 moves (${this.tanks.P1.lastFeedback.toLowerCase()})`);
+            }
+        }
+        if (p2Move) {
+            if (intents.P2) {
+                this.tanks.P2.x = intents.P2.targetX;
+                this.tanks.P2.y = intents.P2.targetY;
+                this._logTick('P2', `P2 moves to (${this.tanks.P2.x},${this.tanks.P2.y})`);
+            } else {
+                this._logTick('P2', `P2 moves (${this.tanks.P2.lastFeedback.toLowerCase()})`);
+            }
+        }
+
         for (const tid of ['P1', 'P2']) {
             const t = this.tanks[tid];
             t.x = Math.max(0, Math.min(this.grid.width - 1, t.x));
@@ -428,7 +471,7 @@ export class BattleManager {
                     if (t.hp > 0 && t.x === b.x && t.y === b.y) {
                         t.hp--;
                         active = false;
-                        this.log.push(`${tid} hit! HP: ${t.hp}`);
+                        this._logTick(b.owner, `${b.owner} bullet hits ${tid}! HP: ${t.hp}`);
                         this.addEvent('EXPLOSION', { x: b.x, y: b.y, owner: b.owner, hitTank: tid });
                     }
                 }
