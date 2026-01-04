@@ -10,21 +10,44 @@
         #game-container { flex: 0 0 40%; background: #000; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; }
         #editor-container { flex: 1; display: flex; flex-direction: column; padding: 10px; border-left: 1px solid #444; overflow-y: auto; min-width: 400px; }
 
-        .header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
-        .header-row select { background: #333; color: #fff; border: 1px solid #555; padding: 4px 8px; }
-        .header-row button { padding: 4px 12px; font-size: 12px; }
-
-        .column-headers { display: flex; gap: 5px; margin-bottom: 3px; padding-left: 185px; }
-        .column-headers span {
+        /* Unified header row - all column headers on single line */
+        .unified-header {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 3px;
+            align-items: center;
             font-size: 11px;
             color: #888;
             text-transform: uppercase;
             letter-spacing: 1px;
-            text-align: center;
         }
-        .column-headers .machine-header { flex: 0 0 140px; }
-        .column-headers .asm-header { flex: 0 0 160px; }
-        .column-headers .script-header { flex: 1; }
+        .unified-header .player-label {
+            flex: 0 0 180px;
+            font-weight: bold;
+            padding-left: 5px;
+        }
+        .unified-header .player-label.p1 { color: #4af; }
+        .unified-header .player-label.p2 { color: #f66; }
+        .unified-header .machine-header { flex: 0 0 140px; text-align: center; }
+        .unified-header .asm-header { flex: 0 0 160px; text-align: center; }
+        .unified-header .script-header { flex: 1; display: flex; align-items: center; justify-content: space-between; }
+        .unified-header .script-header .mode-area { display: flex; align-items: center; gap: 8px; }
+        .unified-header .script-header .controls-area { display: flex; align-items: center; gap: 5px; }
+        .unified-header select {
+            background: #333;
+            color: #fff;
+            border: 1px solid #555;
+            padding: 2px 6px;
+            font-size: 10px;
+            font-family: monospace;
+        }
+        .unified-header .btn-compile {
+            padding: 2px 8px;
+            font-size: 10px;
+            background: #2a4a2a;
+            border: 1px solid #4a6a4a;
+        }
+        .unified-header .btn-compile:hover { background: #3a6a3a; }
 
         .player-section { display: flex; gap: 5px; margin-bottom: 10px; height: 320px; }
         .cpu-panel { flex: 0 0 180px; background: #1a1a1a; padding: 5px; font-size: 12px; border: 1px solid #444; font-family: monospace; overflow: hidden; }
@@ -70,22 +93,115 @@
         .btn-halt.active { background: #a00; box-shadow: 0 0 10px #f00; }
         .controls { display: flex; gap: 10px; margin-bottom: 10px; }
 
-        /* Info icons */
+        /* Status log */
+        #status-log {
+            flex: 1;
+            min-height: 50px;
+            max-height: 120px;
+            overflow-y: auto;
+            background: #111;
+            border: 1px solid #333;
+            padding: 5px;
+            font-size: 11px;
+            color: #888;
+        }
+        #status-log div { padding: 1px 0; }
+
+        /* Responsive adjustments for smaller screens */
+        @media (max-height: 800px) {
+            .player-section { height: 280px; }
+        }
+        @media (max-height: 700px) {
+            .player-section { height: 240px; }
+            #status-log { max-height: 80px; }
+        }
+
+        /* Mode toggle tabs */
+        .mode-toggle {
+            display: flex;
+            gap: 0;
+        }
+        .mode-btn {
+            padding: 3px 10px;
+            background: #333;
+            color: #666;
+            border: 1px solid #555;
+            cursor: pointer;
+            font-size: 10px;
+            font-family: monospace;
+            text-transform: uppercase;
+        }
+        .mode-btn:first-child { border-radius: 3px 0 0 3px; }
+        .mode-btn:last-child { border-radius: 0 3px 3px 0; border-left: none; }
+        .mode-btn.active { background: #2a4a2a; color: #fff; border-color: #4a6a4a; }
+        .mode-btn:hover:not(.active) { background: #444; color: #888; }
+
+        /* Disabled panel state */
+        .panel-disabled {
+            opacity: 0.3;
+            pointer-events: none;
+        }
+
+        /* Assembler editor with line numbers (for assembly mode) */
+        .asm-editor-wrapper {
+            display: flex;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            border: 1px solid #444;
+            box-sizing: border-box;
+            position: relative;
+        }
+        .asm-line-numbers {
+            width: 28px;
+            background: #111;
+            color: #555;
+            text-align: right;
+            padding: 5px 4px 5px 0;
+            font-size: 11px;
+            font-family: monospace;
+            line-height: 15px;
+            overflow: hidden;
+            border-right: 1px solid #333;
+            user-select: none;
+        }
+        .asm-line-numbers .ln { display: block; }
+        .asm-line-numbers .ln.active { color: #0f0; font-weight: bold; }
+        .asm-editor-textarea {
+            flex: 1;
+            background: transparent;
+            color: #0af;
+            border: none;
+            padding: 5px;
+            resize: none;
+            box-sizing: border-box;
+            font-family: monospace;
+            font-size: 11px;
+            line-height: 15px;
+            outline: none;
+        }
+        .asm-pc-highlight {
+            position: absolute;
+            left: 0;
+            right: 0;
+            height: 15px;
+            background: rgba(0, 100, 0, 0.4);
+            pointer-events: none;
+            display: none;
+            z-index: 1;
+        }
+
+        /* Info icons - using unicode symbol */
         .info-icon {
             display: inline-block;
-            width: 14px;
-            height: 14px;
-            border: 1px solid #888;
-            border-radius: 50%;
-            text-align: center;
-            line-height: 12px;
-            font-size: 10px;
-            color: #888;
+            color: #666;
             cursor: pointer;
-            margin-left: 4px;
+            margin-left: 3px;
             vertical-align: middle;
+            font-size: 12px;
+            text-transform: none;
         }
-        .info-icon:hover { color: #fff; border-color: #fff; }
+        .info-icon:hover { color: #fff; }
 
         /* Modal dialog */
         .modal-overlay {
@@ -114,33 +230,37 @@
         .modal-close { float: right; cursor: pointer; color: #888; font-size: 18px; }
         .modal-close:hover { color: #fff; }
     </style>
-  <script type="module" crossorigin src="./assets/index-UDmDAw7K.js"></script>
+  <script type="module" crossorigin src="./assets/index-92CS8G1S.js"></script>
 </head>
 <body>
     <div id="app">
         <div id="game-container"></div>
         <div id="editor-container">
-            <div class="header-row">
-                <h3 style="color: #4af;">CPU 1</h3>
-                <div>
-                    <button id="p1-compile" class="btn-compile">COMPILE</button>
-                    <select id="p1-strategy">
-                        <option value="">-- Load Script --</option>
-                        <option value="HUNTER">Hunter</option>
-                        <option value="STALKER">Stalker</option>
-                        <option value="VERTICAL_SCANNER">Vertical Scanner</option>
-                        <option value="CORNER_SNIPER">Corner Sniper</option>
-                        <option value="ZIGZAG">Zigzag Charger</option>
-                        <option value="PATROL">Patrol Bot</option>
-                    </select>
-                </div>
+            <div class="unified-header">
+                <span class="player-label p1">CPU 1 (Player 1)</span>
+                <span class="machine-header">Machine Code<span class="info-icon" data-help="machine">ⓘ</span></span>
+                <span class="asm-header">Assembler<span class="info-icon" data-help="assembler">ⓘ</span></span>
+                <span class="script-header">
+                    <span class="mode-area">
+                        <div class="mode-toggle" id="p1-mode-toggle">
+                            <button class="mode-btn" data-mode="assembly">ASM</button>
+                            <button class="mode-btn active" data-mode="tankscript">TankScript</button>
+                        </div>
+                        <span class="info-icon" data-help="tankscript">ⓘ</span>
+                    </span>
+                    <span class="controls-area">
+                        <button id="p1-compile" class="btn-compile">COMPILE</button>
+                        <select id="p1-strategy">
+                            <option value="">Load...</option>
+                            <option value="SIMPLE_SCOUT">Simple Scout</option>
+                            <option value="SIMPLE_CHASER">Simple Chaser</option>
+                            <option value="HUNTER">Hunter</option>
+                            <option value="STALKER">Stalker</option>
+                        </select>
+                    </span>
+                </span>
             </div>
             <div id="p1-error" class="error-msg" style="color: #f66; font-size: 11px; margin-bottom: 5px; display: none;"></div>
-            <div class="column-headers">
-                <span class="machine-header">Machine<span class="info-icon" data-help="machine">i</span></span>
-                <span class="asm-header">Assembler<span class="info-icon" data-help="assembler">i</span></span>
-                <span class="script-header">TankScript<span class="info-icon" data-help="tankscript">i</span></span>
-            </div>
             <div class="player-section">
                 <div class="cpu-panel" id="p1-cpu">
                     <!-- Status Header -->
@@ -155,7 +275,7 @@
                         <div title="Direction">DIR: <span id="p1-DIR" style="color:#fa0">0</span></div>
                         <div title="Health">HP: <span id="p1-HP" style="color:#f00">3</span></div>
                         <div title="Ammo">AMMO: <span id="p1-AMMO" style="color:#0ff">1</span></div>
-                        <div title="Total Operations">OPS: <span id="p1-totalOps" style="color:#888">0</span></div>
+                        <div></div>
                     </div>
 
                     <!-- Control Registers -->
@@ -182,37 +302,43 @@
 
                 <div class="asm-panel">
                     <div id="p1-viewer" class="code-viewer"></div>
+                    <div id="p1-asm-wrapper" class="asm-editor-wrapper" style="display: none;">
+                        <div id="p1-asm-highlight" class="asm-pc-highlight"></div>
+                        <div id="p1-asm-lines" class="asm-line-numbers"></div>
+                        <textarea id="p1-asm-editor" class="asm-editor-textarea" placeholder="; Write assembly here..."></textarea>
+                    </div>
                 </div>
 
-                <div class="script-panel">
+                <div class="script-panel" id="p1-script-panel">
                     <textarea id="p1-script" placeholder="Write TankScript here..."></textarea>
-                    <label style="position: absolute; bottom: 5px; right: 5px; font-size: 10px; color: #666;">
-                        <input type="checkbox" id="p1-raw-asm"> Raw ASM
-                    </label>
                 </div>
             </div>
 
-            <div class="header-row">
-                <h3 style="color: #f66;">CPU 2</h3>
-                <div>
-                    <button id="p2-compile" class="btn-compile">COMPILE</button>
-                    <select id="p2-strategy">
-                        <option value="">-- Load Script --</option>
-                        <option value="HUNTER">Hunter</option>
-                        <option value="STALKER">Stalker</option>
-                        <option value="VERTICAL_SCANNER">Vertical Scanner</option>
-                        <option value="CORNER_SNIPER">Corner Sniper</option>
-                        <option value="ZIGZAG">Zigzag Charger</option>
-                        <option value="PATROL">Patrol Bot</option>
-                    </select>
-                </div>
+            <div class="unified-header">
+                <span class="player-label p2">CPU 2 (Player 2)</span>
+                <span class="machine-header">Machine Code<span class="info-icon" data-help="machine">ⓘ</span></span>
+                <span class="asm-header">Assembler<span class="info-icon" data-help="assembler">ⓘ</span></span>
+                <span class="script-header">
+                    <span class="mode-area">
+                        <div class="mode-toggle" id="p2-mode-toggle">
+                            <button class="mode-btn" data-mode="assembly">ASM</button>
+                            <button class="mode-btn active" data-mode="tankscript">TankScript</button>
+                        </div>
+                        <span class="info-icon" data-help="tankscript">ⓘ</span>
+                    </span>
+                    <span class="controls-area">
+                        <button id="p2-compile" class="btn-compile">COMPILE</button>
+                        <select id="p2-strategy">
+                            <option value="">Load...</option>
+                            <option value="SIMPLE_SCOUT">Simple Scout</option>
+                            <option value="SIMPLE_CHASER">Simple Chaser</option>
+                            <option value="HUNTER">Hunter</option>
+                            <option value="STALKER">Stalker</option>
+                        </select>
+                    </span>
+                </span>
             </div>
             <div id="p2-error" class="error-msg" style="color: #f66; font-size: 11px; margin-bottom: 5px; display: none;"></div>
-            <div class="column-headers">
-                <span class="machine-header">Machine<span class="info-icon" data-help="machine">i</span></span>
-                <span class="asm-header">Assembler<span class="info-icon" data-help="assembler">i</span></span>
-                <span class="script-header">TankScript<span class="info-icon" data-help="tankscript">i</span></span>
-            </div>
             <div class="player-section">
                 <div class="cpu-panel" id="p2-cpu">
                     <!-- Status Header -->
@@ -227,7 +353,7 @@
                         <div title="Direction">DIR: <span id="p2-DIR" style="color:#fa0">0</span></div>
                         <div title="Health">HP: <span id="p2-HP" style="color:#f00">3</span></div>
                         <div title="Ammo">AMMO: <span id="p2-AMMO" style="color:#0ff">1</span></div>
-                        <div title="Total Operations">OPS: <span id="p2-totalOps" style="color:#888">0</span></div>
+                        <div></div>
                     </div>
 
                     <!-- Control Registers -->
@@ -254,13 +380,15 @@
 
                 <div class="asm-panel">
                     <div id="p2-viewer" class="code-viewer"></div>
+                    <div id="p2-asm-wrapper" class="asm-editor-wrapper" style="display: none;">
+                        <div id="p2-asm-highlight" class="asm-pc-highlight"></div>
+                        <div id="p2-asm-lines" class="asm-line-numbers"></div>
+                        <textarea id="p2-asm-editor" class="asm-editor-textarea" placeholder="; Write assembly here..."></textarea>
+                    </div>
                 </div>
 
-                <div class="script-panel">
+                <div class="script-panel" id="p2-script-panel">
                     <textarea id="p2-script" placeholder="Write TankScript here..."></textarea>
-                    <label style="position: absolute; bottom: 5px; right: 5px; font-size: 10px; color: #666;">
-                        <input type="checkbox" id="p2-raw-asm"> Raw ASM
-                    </label>
                 </div>
             </div>
 
@@ -273,7 +401,7 @@
                 <button id="btn-run">RUN</button>
                 <button id="btn-stop" class="btn-halt">HALT</button>
                 <button id="btn-step">STEP</button>
-                <button id="btn-ff">>> (FF)</button>
+                <button id="btn-ff">FAST</button>
                 <button id="btn-reset">RESET</button>
             </div>
             <div id="status-log"></div>
