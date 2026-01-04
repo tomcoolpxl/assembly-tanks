@@ -969,6 +969,9 @@ function renderMachineCode(container, program) {
     });
 }
 
+// Game actions that end the turn (vs instant CPU operations)
+const GAME_ACTIONS = ['MOVE', 'ROTATE', 'FIRE', 'SCAN', 'PING', 'NOP'];
+
 function updateCPU(prefix, tankData) {
     if (!tankData || !tankData.debugRegisters) return;
     const statusEl = document.getElementById(`${prefix}-status`);
@@ -979,10 +982,10 @@ function updateCPU(prefix, tankData) {
         else if (tankData.lastFeedback) { statusText = tankData.lastFeedback; color = '#f66'; }
         else if (tankData.lastAction) {
             if (tankData.lastAction === 'HALT') { statusText = 'HALTED'; color = '#f0f'; }
-            else if (OPCODE_BINARY[tankData.lastAction] !== undefined) { 
-                statusText = `TICK: ${tankData.lastAction}`; color = '#ff0'; 
-            } else { 
-                statusText = `ACT: ${tankData.lastAction}`; color = '#4f4'; 
+            else if (GAME_ACTIONS.includes(tankData.lastAction)) {
+                statusText = `ACT: ${tankData.lastAction}`; color = '#4f4';
+            } else {
+                statusText = `TICK: ${tankData.lastAction}`; color = '#ff0';
             }
         }
         statusEl.textContent = statusText;
